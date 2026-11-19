@@ -40,6 +40,15 @@ class OvertimeParameterTest extends TestCase
         $this->actingAs($employee)->put('/hours/settings', [])->assertForbidden();
     }
 
+    public function test_manager_cannot_read_or_update_overtime_rates(): void
+    {
+        /** @var User $manager */
+        $manager = User::factory()->create(['role' => 'manager']);
+
+        $this->actingAs($manager)->get('/hours/settings')->assertForbidden();
+        $this->actingAs($manager)->put('/hours/settings', [])->assertForbidden();
+    }
+
     public function test_hr_cannot_save_a_rate_that_exceeds_the_database_precision(): void
     {
         /** @var User $hr */

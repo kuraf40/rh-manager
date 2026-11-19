@@ -10,7 +10,8 @@ import { Link, usePage } from '@inertiajs/vue3';
 const showingNavigationDropdown = ref(false);
 const page = usePage();
 const userRole = page.props.auth.user.role;
-const canManageHr = ['admin', 'rh'].includes(userRole);
+const canManageHr = ['admin', 'rh', 'manager'].includes(userRole);
+const canViewBirthdays = ['admin', 'rh'].includes(userRole);
 const notification = ref('');
 let notificationTimeout;
 
@@ -68,7 +69,7 @@ onBeforeUnmount(() => clearTimeout(notificationTimeout));
                                 <NavLink :href="route('hours.index')" :active="route().current('hours.*')">Heures</NavLink>
                                 <template v-if="canManageHr">
                                     <NavLink :href="route('employees.index')" :active="route().current('employees.index')">Employés</NavLink>
-                                    <NavLink :href="route('employees.birthdays')" :active="route().current('employees.birthdays')">Anniversaires</NavLink>
+                                    <NavLink v-if="canViewBirthdays" :href="route('employees.birthdays')" :active="route().current('employees.birthdays')">Anniversaires</NavLink>
                                     <NavLink :href="route('discipline.index')" :active="route().current('discipline.*')">Discipline</NavLink>
                                 </template>
                                 <NavLink v-if="userRole === 'admin'" :href="route('users.index')" :active="route().current('users.*')">Comptes</NavLink>
@@ -182,7 +183,7 @@ onBeforeUnmount(() => clearTimeout(notificationTimeout));
                         <ResponsiveNavLink :href="route('hours.index')" :active="route().current('hours.*')">Heures</ResponsiveNavLink>
                         <template v-if="canManageHr">
                             <ResponsiveNavLink :href="route('employees.index')" :active="route().current('employees.index')">Employés</ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('employees.birthdays')" :active="route().current('employees.birthdays')">Anniversaires</ResponsiveNavLink>
+                            <ResponsiveNavLink v-if="canViewBirthdays" :href="route('employees.birthdays')" :active="route().current('employees.birthdays')">Anniversaires</ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('discipline.index')" :active="route().current('discipline.*')">Discipline</ResponsiveNavLink>
                         </template>
                         <ResponsiveNavLink v-if="userRole === 'admin'" :href="route('users.index')" :active="route().current('users.*')">Comptes</ResponsiveNavLink>

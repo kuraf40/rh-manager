@@ -15,7 +15,7 @@ use Inertia\Response;
 
 class UserController extends Controller
 {
-    private const ROLES = ['admin', 'rh', 'manager', 'employee'];
+    private const ROLES = ['admin', 'rh', 'manager'];
 
     public function index(Request $request): Response
     {

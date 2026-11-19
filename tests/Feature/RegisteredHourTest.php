@@ -52,6 +52,17 @@ class RegisteredHourTest extends TestCase
                 ->where('flash.message', 'Enregistrement confirmé.'));
     }
 
+    public function test_manager_can_view_overtime_reports(): void
+    {
+        /** @var User $manager */
+        $manager = User::factory()->create(['role' => 'manager']);
+
+        $this->actingAs($manager)->get('/hours/summary', [
+            'period' => 'week',
+            'date' => now()->toDateString(),
+        ])->assertOk()->assertInertia(fn ($page) => $page->component('Hours/Summary'));
+    }
+
     public function test_overtime_crossing_midnight_is_split_into_its_calendar_days(): void
     {
         /** @var User $admin */

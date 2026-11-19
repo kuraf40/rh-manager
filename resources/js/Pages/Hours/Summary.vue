@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
     rows: Array,
@@ -14,6 +14,16 @@ const props = defineProps({
 
 const period = ref(props.period);
 const date = ref(props.date);
+const formatDate = (value) => {
+    const [year, month, day] = value.split('-');
+
+    return `${day}/${month}/${year}`;
+};
+const reportTitle = computed(() => {
+    const periodLabel = period.value === 'month' ? 'du mois' : 'de la semaine';
+
+    return `Rapport ${periodLabel} du ${formatDate(props.startDate)} au ${formatDate(props.endDate)}`;
+});
 
 const printReport = () => window.print();
 
@@ -97,12 +107,12 @@ const downloadCsv = () => {
 </script>
 
 <template>
-    <Head title="Rapports d’heures" />
+    <Head :title="reportTitle" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex flex-wrap items-center justify-between gap-3">
-                <h2 class="text-xl font-semibold text-gray-800">Rapports d’heures</h2>
+                <h2 class="text-xl font-semibold text-gray-800">{{ reportTitle }}</h2>
                 <div class="report-actions flex flex-wrap gap-2">
                     <Link :href="route('hours.index')" class="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Retour aux heures</Link>
                     <button type="button" class="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50" @click="printReport">Imprimer</button>

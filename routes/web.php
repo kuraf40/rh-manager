@@ -25,8 +25,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/hours', [RegisteredHourController::class, 'store'])->name('hours.store');
     });
 
-    Route::middleware('role:admin,rh')->group(function () {
+    Route::middleware('role:admin,rh,manager')->group(function () {
         Route::get('/hours/summary', [RegisteredHourController::class, 'summary'])->name('hours.summary');
+    });
+
+    Route::middleware('role:admin,rh')->group(function () {
         Route::get('/hours/settings', [OvertimeParameterController::class, 'index'])->name('hours.settings');
         Route::put('/hours/settings', [OvertimeParameterController::class, 'update'])->name('hours.settings.update');
     });
@@ -41,9 +44,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // Routes restreintes aux administrateurs et RH
-    Route::middleware(['role:admin,rh'])->group(function () {
+    Route::middleware('role:admin,rh')->group(function () {
         Route::get('/employees/birthdays', [EmployeeController::class, 'birthdays'])->name('employees.birthdays');
+    });
+
+    Route::middleware('role:admin,rh,manager')->group(function () {
         Route::patch('/employees/{employee}/status', [EmployeeController::class, 'updateStatus'])->name('employees.status');
         Route::resource('employees', EmployeeController::class)->only(['index', 'store', 'update']);
 

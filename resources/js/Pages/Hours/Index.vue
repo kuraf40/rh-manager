@@ -10,7 +10,9 @@ const props = defineProps({
     today: String,
 });
 
-const canViewReports = ['admin', 'rh'].includes(usePage().props.auth.user.role);
+const userRole = usePage().props.auth.user.role;
+const canViewReports = ['admin', 'rh', 'manager'].includes(userRole);
+const canManageRates = ['admin', 'rh'].includes(userRole);
 const editingHour = ref(null);
 
 const form = useForm({
@@ -121,7 +123,7 @@ const deleteHour = (item) => {
                 <h2 class="text-xl font-semibold text-gray-800">Heures supplémentaires</h2>
                 <div class="flex flex-wrap gap-2">
                     <Link v-if="canViewReports" :href="route('hours.summary')" class="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Rapports semaine / mois</Link>
-                    <Link v-if="canViewReports" :href="route('hours.settings')" class="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Taux</Link>
+                    <Link v-if="canManageRates" :href="route('hours.settings')" class="rounded border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">Taux</Link>
                 </div>
             </div>
         </template>
@@ -327,42 +329,56 @@ const deleteHour = (item) => {
                     </form>
                 </section>
 
-                <section class="overflow-x-auto rounded-md bg-white p-5 shadow-sm">
+                <section class="rounded-md bg-white p-3 shadow-sm sm:p-5">
                     <h3 class="mb-4 text-base font-semibold text-gray-900">Historique des heures ({{ hours.total }})</h3>
-                    <table class="min-w-full divide-y divide-gray-200">
+                    <div class="overflow-x-auto">
+                    <table class="w-full min-w-[980px] table-fixed divide-y divide-gray-200 md:min-w-0">
+                        <colgroup>
+                            <col class="w-[18%]" />
+                            <col class="w-[8%]" />
+                            <col class="w-[9%]" />
+                            <col class="w-[8%]" />
+                            <col class="w-[11%]" />
+                            <col class="w-[6%]" />
+                            <col class="w-[6%]" />
+                            <col class="w-[8%]" />
+                            <col class="w-[8%]" />
+                            <col class="w-[7%]" />
+                            <col class="w-[11%]" />
+                        </colgroup>
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Magasinier</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Date</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Vacation</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Jour</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Horaires</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Jour</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Nuit</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Férié jour</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Férié nuit</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Total</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
+                                <th class="px-2 py-3 text-left text-[10px] font-medium uppercase text-gray-500 sm:text-xs">Magasinier</th>
+                                <th class="px-2 py-3 text-left text-[10px] font-medium uppercase text-gray-500 sm:text-xs">Date</th>
+                                <th class="px-2 py-3 text-left text-[10px] font-medium uppercase text-gray-500 sm:text-xs">Vacation</th>
+                                <th class="px-2 py-3 text-left text-[10px] font-medium uppercase text-gray-500 sm:text-xs">Jour</th>
+                                <th class="px-2 py-3 text-left text-[10px] font-medium uppercase text-gray-500 sm:text-xs">Horaires</th>
+                                <th class="px-2 py-3 text-right text-[10px] font-medium uppercase text-gray-500 sm:text-xs">Jour</th>
+                                <th class="px-2 py-3 text-right text-[10px] font-medium uppercase text-gray-500 sm:text-xs">Nuit</th>
+                                <th class="px-2 py-3 text-right text-[10px] font-medium uppercase text-gray-500 sm:text-xs">Férié jour</th>
+                                <th class="px-2 py-3 text-right text-[10px] font-medium uppercase text-gray-500 sm:text-xs">Férié nuit</th>
+                                <th class="px-2 py-3 text-right text-[10px] font-medium uppercase text-gray-500 sm:text-xs">Total</th>
+                                <th class="sticky right-0 z-10 bg-gray-50 px-2 py-3 text-right text-[10px] font-medium uppercase text-gray-500 sm:text-xs">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">
                             <tr v-for="item in hours.data" :key="item.id">
-                                <td class="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+                                <td class="break-words px-2 py-3 text-xs font-medium text-gray-900 sm:text-sm">
                                     {{ item.employee ? `${item.employee.nom} ${item.employee.prenom}` : 'Inconnu' }}
                                 </td>
-                                <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-500">{{ item.date_enreg }}</td>
-                                <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-500">{{ item.vacation || '—' }}</td>
-                                <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-500">
+                                <td class="whitespace-nowrap px-2 py-3 text-xs text-gray-500 sm:text-sm">{{ item.date_enreg }}</td>
+                                <td class="break-words px-2 py-3 text-xs text-gray-500 sm:text-sm">{{ item.vacation || '—' }}</td>
+                                <td class="break-words px-2 py-3 text-xs text-gray-500 sm:text-sm">
                                     {{ item.type_jour === 'ferie' ? 'Férié' : item.type_jour === 'non_ferie' ? 'Non férié' : '—' }}
                                 </td>
-                                <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-500">{{ item.heure_debut }} - {{ item.heure_fin }}</td>
-                                <td class="px-4 py-3 text-right text-sm text-gray-700">{{ formatHours(item.h_jour) }}</td>
-                                <td class="px-4 py-3 text-right text-sm text-gray-700">{{ formatHours(item.h_nuit) }}</td>
-                                <td class="px-4 py-3 text-right text-sm text-gray-700">{{ formatHours(item.h_ferie_jour) }}</td>
-                                <td class="px-4 py-3 text-right text-sm text-gray-700">{{ formatHours(item.h_ferie_nuit) }}</td>
-                                <td class="whitespace-nowrap px-4 py-3 text-right text-sm font-semibold text-gray-900">{{ formatHours(item.total_heures) }} h</td>
-                                <td class="whitespace-nowrap px-4 py-3 text-right text-sm">
-                                    <div class="flex justify-end gap-3">
+                                <td class="whitespace-nowrap px-2 py-3 text-xs text-gray-500 sm:text-sm">{{ item.heure_debut }} - {{ item.heure_fin }}</td>
+                                <td class="px-2 py-3 text-right text-xs text-gray-700 sm:text-sm">{{ formatHours(item.h_jour) }}</td>
+                                <td class="px-2 py-3 text-right text-xs text-gray-700 sm:text-sm">{{ formatHours(item.h_nuit) }}</td>
+                                <td class="px-2 py-3 text-right text-xs text-gray-700 sm:text-sm">{{ formatHours(item.h_ferie_jour) }}</td>
+                                <td class="px-2 py-3 text-right text-xs text-gray-700 sm:text-sm">{{ formatHours(item.h_ferie_nuit) }}</td>
+                                <td class="whitespace-nowrap px-2 py-3 text-right text-xs font-semibold text-gray-900 sm:text-sm">{{ formatHours(item.total_heures) }} h</td>
+                                <td class="sticky right-0 whitespace-nowrap bg-white px-2 py-3 text-right text-xs sm:text-sm">
+                                    <div class="flex justify-end gap-2">
                                         <button type="button" class="text-emerald-700 hover:underline" @click="startEditing(item)">Modifier</button>
                                         <button type="button" class="text-red-700 hover:underline" @click="deleteHour(item)">Supprimer</button>
                                     </div>
@@ -373,6 +389,7 @@ const deleteHour = (item) => {
                             </tr>
                         </tbody>
                     </table>
+                    </div>
                     <nav v-if="hours.links.length > 3" class="mt-4 flex flex-wrap justify-end gap-1" aria-label="Pagination des heures">
                         <Link
                             v-for="link in hours.links"
@@ -381,9 +398,10 @@ const deleteHour = (item) => {
                             :aria-current="link.active ? 'page' : undefined"
                             :class="link.active ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'"
                             class="rounded border px-3 py-2 text-sm"
+                            :aria-label="link.label.includes('Previous') ? 'Page précédente' : link.label.includes('Next') ? 'Page suivante' : `Page ${link.label}`"
                             @click="!link.url && $event.preventDefault()"
                         >
-                            {{ link.label.replace('&laquo; Previous', 'Précédent').replace('Next &raquo;', 'Suivant') }}
+                            {{ link.label.includes('Previous') ? '←' : link.label.includes('Next') ? '→' : link.label }}
                         </Link>
                     </nav>
                 </section>
