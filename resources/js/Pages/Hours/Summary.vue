@@ -5,6 +5,7 @@ import { ref, watch } from 'vue';
 
 const props = defineProps({
     rows: Array,
+    rates: Object,
     period: String,
     date: String,
     startDate: String,
@@ -43,6 +44,12 @@ const hours = (value) => Number(value || 0).toFixed(2);
                     <p class="text-sm text-gray-500">Du {{ startDate }} au {{ endDate }}</p>
                 </div>
 
+                <p v-if="period === 'month'" class="text-sm text-gray-600">
+                    Répartition du cycle historique : HS {{ rates.hs_12 }}% pour les 8 premières heures de jour,
+                    HS {{ rates.hs_35 }}% pour les suivantes, HS {{ rates.hs_50 }}% pour les heures de nuit et de jour fériées,
+                    HS {{ rates.hs_100 }}% pour les heures de nuit fériées. Les valeurs sont des heures, pas des montants salariaux.
+                </p>
+
                 <div class="overflow-x-auto rounded-md bg-white shadow-sm">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
@@ -52,6 +59,10 @@ const hours = (value) => Number(value || 0).toFixed(2);
                                 <th class="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">Nuit</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">Férié jour</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">Férié nuit</th>
+                                <th v-if="period === 'month'" class="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">HS {{ rates.hs_12 }}%</th>
+                                <th v-if="period === 'month'" class="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">HS {{ rates.hs_35 }}%</th>
+                                <th v-if="period === 'month'" class="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">HS {{ rates.hs_50 }}%</th>
+                                <th v-if="period === 'month'" class="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">HS {{ rates.hs_100 }}%</th>
                                 <th class="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">Total</th>
                             </tr>
                         </thead>
@@ -62,10 +73,14 @@ const hours = (value) => Number(value || 0).toFixed(2);
                                 <td class="px-4 py-3 text-right text-sm text-gray-700">{{ hours(row.h_nuit) }}</td>
                                 <td class="px-4 py-3 text-right text-sm text-gray-700">{{ hours(row.h_ferie_jour) }}</td>
                                 <td class="px-4 py-3 text-right text-sm text-gray-700">{{ hours(row.h_ferie_nuit) }}</td>
+                                <td v-if="period === 'month'" class="px-4 py-3 text-right text-sm text-gray-700">{{ hours(row.hs_12) }}</td>
+                                <td v-if="period === 'month'" class="px-4 py-3 text-right text-sm text-gray-700">{{ hours(row.hs_35) }}</td>
+                                <td v-if="period === 'month'" class="px-4 py-3 text-right text-sm text-gray-700">{{ hours(row.hs_50) }}</td>
+                                <td v-if="period === 'month'" class="px-4 py-3 text-right text-sm text-gray-700">{{ hours(row.hs_100) }}</td>
                                 <td class="px-4 py-3 text-right text-sm font-semibold text-gray-900">{{ hours(row.total_heures) }}</td>
                             </tr>
                             <tr v-if="rows.length === 0">
-                                <td colspan="6" class="px-4 py-10 text-center text-sm text-gray-500">Aucune heure enregistrée sur cette période.</td>
+                                <td :colspan="period === 'month' ? 10 : 6" class="px-4 py-10 text-center text-sm text-gray-500">Aucune heure enregistrée sur cette période.</td>
                             </tr>
                         </tbody>
                     </table>

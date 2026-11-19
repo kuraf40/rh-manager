@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Employee;
+use App\Models\OvertimeParameter;
 use App\Models\RegisteredHour;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -225,46 +226,103 @@ class RegisteredHourTest extends TestCase
         $this->assertDatabaseCount('registered_hours', 0);
     }
 
-    public function test_month_report_groups_hour_categories_for_the_selected_period(): void
+    public function test_month_report_uses_legacy_cycle_and_calculates_hours_by_rate(): void
     {
         /** @var User $admin */
         $admin = User::factory()->create(['role' => 'admin']);
         $employee = $this->createEmployee('HOUR-102');
-        RegisteredHour::create([
-            'employee_id' => $employee->id,
-            'date_enreg' => '2026-09-12',
-            'heure_debut' => '22:00',
-            'heure_fin' => '02:00',
-            'total_heures' => 4,
-            'h_jour' => 0,
-            'h_nuit' => 2,
-            'h_ferie_jour' => 1,
-            'h_ferie_nuit' => 1,
-            'mois_reference' => '2026-09',
-            'semaine_reference' => 37,
+        OvertimeParameter::query()->create([
+            'hs_12' => 12,
+            'hs_35' => 35,
+            'hs_50' => 50,
+            'hs_100' => 100,
         ]);
-        RegisteredHour::create([
-            'employee_id' => $employee->id,
-            'date_enreg' => '2026-08-31',
-            'heure_debut' => '08:00',
-            'heure_fin' => '12:00',
-            'total_heures' => 4,
-            'h_jour' => 4,
-            'h_nuit' => 0,
-            'h_ferie_jour' => 0,
-            'h_ferie_nuit' => 0,
-            'mois_reference' => '2026-08',
-            'semaine_reference' => 36,
-        ]);
+        $hourRows = [
+            [
+                'date_enreg' => '2026-08-20',
+                'heure_debut' => '08:00',
+                'heure_fin' => '14:00',
+                'total_heures' => 6,
+                'h_jour' => 6,
+                'h_nuit' => 0,
+                'h_ferie_jour' => 0,
+                'h_ferie_nuit' => 0,
+            ],
+            [
+                'date_enreg' => '2026-08-31',
+                'heure_debut' => '08:00',
+                'heure_fin' => '12:00',
+                'total_heures' => 4,
+                'h_jour' => 4,
+                'h_nuit' => 0,
+                'h_ferie_jour' => 0,
+                'h_ferie_nuit' => 0,
+            ],
+            [
+                'date_enreg' => '2026-09-12',
+                'heure_debut' => '22:00',
+                'heure_fin' => '02:00',
+                'total_heures' => 4,
+                'h_jour' => 0,
+                'h_nuit' => 2,
+                'h_ferie_jour' => 1,
+                'h_ferie_nuit' => 1,
+            ],
+            [
+                'date_enreg' => '2026-09-19',
+                'heure_debut' => '10:00',
+                'heure_fin' => '11:00',
+                'total_heures' => 1,
+                'h_jour' => 1,
+                'h_nuit' => 0,
+                'h_ferie_jour' => 0,
+                'h_ferie_nuit' => 0,
+            ],
+            [
+                'date_enreg' => '2026-08-19',
+                'heure_debut' => '08:00',
+                'heure_fin' => '10:00',
+                'total_heures' => 2,
+                'h_jour' => 2,
+                'h_nuit' => 0,
+                'h_ferie_jour' => 0,
+                'h_ferie_nuit' => 0,
+            ],
+            [
+                'date_enreg' => '2026-09-20',
+                'heure_debut' => '08:00',
+                'heure_fin' => '11:00',
+                'total_heures' => 3,
+                'h_jour' => 3,
+                'h_nuit' => 0,
+                'h_ferie_jour' => 0,
+                'h_ferie_nuit' => 0,
+            ],
+        ];
+
+        foreach ($hourRows as $hourRow) {
+            RegisteredHour::create([
+                'employee_id' => $employee->id,
+                ...$hourRow,
+                'mois_reference' => '2026-09',
+                'semaine_reference' => 2,
+            ]);
+        }
 
         $this->actingAs($admin)->get('/hours/summary?period=month&date=2026-09-15')
             ->assertOk()
             ->assertInertia(fn ($page) => $page->component('Hours/Summary')
                 ->where('rows.0.employee.matricule', 'HOUR-102')
-                ->where('rows.0.total_heures', 4)
+                ->where('rows.0.total_heures', 15)
+                ->where('rows.0.h_jour', 11)
                 ->where('rows.0.h_ferie_nuit', 1)
-                ->where('startDate', '2026-09-01')
-                ->where('endDate', '2026-09-30'));
+                ->where('rows.0.hs_12', 8)
+                ->where('rows.0.hs_35', 3)
+                ->where('rows.0.hs_50', 3)
+                ->where('rows.0.hs_100', 1)
+                ->where('rates.hs_12', 12)
+                ->where('startDate', '2026-08-20')
+                ->where('endDate', '2026-09-19'));
     }
 
     public function test_employee_role_cannot_view_all_employee_hours(): void

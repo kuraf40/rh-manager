@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Employee;
+use App\Models\OvertimeParameter;
 use App\Models\RegisteredHour;
+use App\Services\OvertimeRateCalculator;
 use App\Services\OvertimeRegistrationService;
 use Carbon\CarbonImmutable;
 use Carbon\WeekDay;
@@ -98,7 +100,7 @@ class RegisteredHourController extends Controller
         return back()->with('message', 'Heures supplémentaires enregistrées avec succès.');
     }
 
-    public function summary(Request $request): Response
+    public function summary(Request $request, OvertimeRateCalculator $rateCalculator): Response
     {
         $validated = $request->validate([
             'period' => ['sometimes', Rule::in(['week', 'month'])],
@@ -111,8 +113,9 @@ class RegisteredHourController extends Controller
             $startDate = $date->startOfWeek(WeekDay::Monday);
             $endDate = $date->endOfWeek(WeekDay::Sunday);
         } else {
-            $startDate = $date->startOfMonth();
-            $endDate = $date->endOfMonth();
+            $referenceMonth = $date->startOfMonth();
+            $startDate = $referenceMonth->subMonthNoOverflow()->setDay(20);
+            $endDate = $referenceMonth->setDay(19);
         }
 
         $rows = RegisteredHour::query()
@@ -126,10 +129,25 @@ class RegisteredHourController extends Controller
             ->whereBetween('date_enreg', [$startDate->toDateString(), $endDate->toDateString()])
             ->groupBy('employee_id')
             ->orderBy('employee_id')
-            ->get();
+            ->get()
+            ->map(function (RegisteredHour $row) use ($rateCalculator): RegisteredHour {
+                $rateHours = $rateCalculator->calculate(
+                    (float) $row->h_jour,
+                    (float) $row->h_nuit,
+                    (float) $row->h_ferie_jour,
+                    (float) $row->h_ferie_nuit,
+                );
+
+                foreach ($rateHours as $rate => $hours) {
+                    $row->setAttribute($rate, $hours);
+                }
+
+                return $row;
+            });
 
         return Inertia::render('Hours/Summary', [
             'rows' => $rows,
+            'rates' => OvertimeParameter::current()->only(['hs_12', 'hs_35', 'hs_50', 'hs_100']),
             'period' => $period,
             'date' => $date->toDateString(),
             'startDate' => $startDate->toDateString(),

@@ -39,4 +39,21 @@ class OvertimeParameterTest extends TestCase
         $this->actingAs($employee)->get('/hours/settings')->assertForbidden();
         $this->actingAs($employee)->put('/hours/settings', [])->assertForbidden();
     }
+
+    public function test_hr_cannot_save_a_rate_that_exceeds_the_database_precision(): void
+    {
+        /** @var User $hr */
+        $hr = User::factory()->create(['role' => 'rh']);
+
+        $this->actingAs($hr)->put('/hours/settings', [
+            'hs_12' => 1000,
+            'hs_35' => 35,
+            'hs_50' => 50,
+            'hs_100' => 100,
+        ])->assertSessionHasErrors([
+            'hs_12' => 'Le taux ne peut pas dépasser 999,99 %.',
+        ]);
+
+        $this->assertDatabaseCount('overtime_parameters', 0);
+    }
 }
