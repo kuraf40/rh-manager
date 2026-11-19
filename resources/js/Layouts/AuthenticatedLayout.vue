@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { onBeforeUnmount, ref, watch } from 'vue';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
@@ -8,12 +8,37 @@ import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 
 const showingNavigationDropdown = ref(false);
-const userRole = usePage().props.auth.user.role;
-const canManageHr = ['admin', 'rh'].includes(userRole);
+const page = usePage();
+const userRole = page.props.auth.user.role;
+const canManageHr = ['admin', 'rh', 'manager'].includes(userRole);
+const canViewBirthdays = ['admin', 'rh'].includes(userRole);
+const notification = ref('');
+let notificationTimeout;
+
+watch(
+    () => page.props.flash?.message,
+    (message) => {
+        notification.value = message || '';
+        clearTimeout(notificationTimeout);
+
+        if (message) {
+            notificationTimeout = setTimeout(() => {
+                notification.value = '';
+            }, 4000);
+        }
+    },
+    { immediate: true },
+);
+
+onBeforeUnmount(() => clearTimeout(notificationTimeout));
 </script>
 
 <template>
     <div>
+        <div v-if="notification" role="status" aria-live="polite" class="fixed right-4 top-4 z-50 flex max-w-sm items-start gap-3 rounded-md border border-emerald-200 bg-white px-4 py-3 text-sm text-emerald-800 shadow-lg">
+            <p class="flex-1">{{ notification }}</p>
+            <button type="button" aria-label="Fermer la notification" class="font-semibold text-emerald-900 hover:text-emerald-700" @click="notification = ''">×</button>
+        </div>
         <div class="min-h-screen bg-gray-100">
             <nav
                 class="border-b border-gray-100 bg-white"
@@ -44,7 +69,7 @@ const canManageHr = ['admin', 'rh'].includes(userRole);
                                 <NavLink :href="route('hours.index')" :active="route().current('hours.*')">Heures</NavLink>
                                 <template v-if="canManageHr">
                                     <NavLink :href="route('employees.index')" :active="route().current('employees.index')">Employés</NavLink>
-                                    <NavLink :href="route('employees.birthdays')" :active="route().current('employees.birthdays')">Anniversaires</NavLink>
+                                    <NavLink v-if="canViewBirthdays" :href="route('employees.birthdays')" :active="route().current('employees.birthdays')">Anniversaires</NavLink>
                                     <NavLink :href="route('discipline.index')" :active="route().current('discipline.*')">Discipline</NavLink>
                                 </template>
                                 <NavLink v-if="userRole === 'admin'" :href="route('users.index')" :active="route().current('users.*')">Comptes</NavLink>
@@ -158,7 +183,7 @@ const canManageHr = ['admin', 'rh'].includes(userRole);
                         <ResponsiveNavLink :href="route('hours.index')" :active="route().current('hours.*')">Heures</ResponsiveNavLink>
                         <template v-if="canManageHr">
                             <ResponsiveNavLink :href="route('employees.index')" :active="route().current('employees.index')">Employés</ResponsiveNavLink>
-                            <ResponsiveNavLink :href="route('employees.birthdays')" :active="route().current('employees.birthdays')">Anniversaires</ResponsiveNavLink>
+                            <ResponsiveNavLink v-if="canViewBirthdays" :href="route('employees.birthdays')" :active="route().current('employees.birthdays')">Anniversaires</ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('discipline.index')" :active="route().current('discipline.*')">Discipline</ResponsiveNavLink>
                         </template>
                         <ResponsiveNavLink v-if="userRole === 'admin'" :href="route('users.index')" :active="route().current('users.*')">Comptes</ResponsiveNavLink>

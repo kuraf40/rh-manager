@@ -1,6 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
 
 const props = defineProps({
     employees: Array,
@@ -17,10 +18,54 @@ const form = useForm({
     attribue_par: '',
 });
 
+const editingActionId = ref(null);
+
 const submit = () => {
-    form.post(route('discipline.store'), {
-        onSuccess: () => form.reset('motif', 'resume', 'nb_jours', 'code'),
+    const options = {
+        preserveScroll: true,
+        onSuccess: () => {
+            editingActionId.value = null;
+            form.reset();
+        },
+    };
+
+    if (editingActionId.value) {
+        form.put(route('discipline.update', editingActionId.value), options);
+
+        return;
+    }
+
+    form.post(route('discipline.store'), options);
+};
+
+const startEditing = (action) => {
+    editingActionId.value = action.id;
+    form.clearErrors();
+    Object.assign(form, {
+        type: action.type,
+        employee_id: action.employee_id,
+        code: action.code || '',
+        motif: action.motif || '',
+        resume: action.resume || '',
+        nb_jours: action.nb_jours || '',
+        attribue_par: action.attribue_par || '',
     });
+};
+
+const cancelEditing = () => {
+    editingActionId.value = null;
+    form.reset();
+    form.clearErrors();
+};
+
+const deleteAction = (action) => {
+    const employeeName = action.employee ? `${action.employee.nom} ${action.employee.prenom}` : 'cet employé';
+
+    if (!window.confirm(`Supprimer cette action disciplinaire pour ${employeeName} ?`)) {
+        return;
+    }
+
+    router.delete(route('discipline.destroy', action.id), { preserveScroll: true });
 };
 
 const getTypeBadge = (type) => {
@@ -49,7 +94,13 @@ const getTypeBadge = (type) => {
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
                 <!-- Formulaire d'enregistrement -->
                 <div class="bg-white p-6 shadow sm:rounded-lg">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Enregistrer une action disciplinaire</h3>
+                    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900">{{ editingActionId ? 'Modifier l’action disciplinaire' : 'Enregistrer une action disciplinaire' }}</h3>
+                            <p v-if="editingActionId" class="text-sm text-gray-600">La date d’enregistrement d’origine est conservée.</p>
+                        </div>
+                        <button v-if="editingActionId" type="button" class="text-sm text-gray-600 underline" @click="cancelEditing">Annuler la modification</button>
+                    </div>
 
                     <form @submit.prevent="submit" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -60,6 +111,7 @@ const getTypeBadge = (type) => {
                                 <option value="blame">Blâme</option>
                                 <option value="mise_a_pied">Mise à pied</option>
                             </select>
+                            <p v-if="form.errors.type" class="mt-1 text-sm text-red-700">{{ form.errors.type }}</p>
                         </div>
 
                         <div>
@@ -70,11 +122,19 @@ const getTypeBadge = (type) => {
                                     {{ emp.nom }} {{ emp.prenom }} ({{ emp.matricule }})
                                 </option>
                             </select>
+                            <p v-if="form.errors.employee_id" class="mt-1 text-sm text-red-700">{{ form.errors.employee_id }}</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Code</label>
+                            <input v-model="form.code" type="text" maxlength="20" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+                            <p v-if="form.errors.code" class="mt-1 text-sm text-red-700">{{ form.errors.code }}</p>
                         </div>
 
                         <div v-if="form.type === 'mise_a_pied'">
                             <label class="block text-sm font-medium text-gray-700">Nombre de jours</label>
                             <input v-model="form.nb_jours" type="number" min="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" placeholder="Ex: 3" />
+                            <p v-if="form.errors.nb_jours" class="mt-1 text-sm text-red-700">{{ form.errors.nb_jours }}</p>
                         </div>
 
                         <div>
@@ -85,11 +145,18 @@ const getTypeBadge = (type) => {
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium text-gray-700">Motif</label>
                             <textarea v-model="form.motif" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required placeholder="Détails du motif..."></textarea>
+                            <p v-if="form.errors.motif" class="mt-1 text-sm text-red-700">{{ form.errors.motif }}</p>
                         </div>
 
-                        <div class="md:col-span-2 flex justify-end">
-                            <button type="submit" :disabled="form.processing" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
-                                Enregistrer la sanction
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700">Résumé</label>
+                            <textarea v-model="form.resume" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"></textarea>
+                            <p v-if="form.errors.resume" class="mt-1 text-sm text-red-700">{{ form.errors.resume }}</p>
+                        </div>
+
+                        <div class="md:col-span-2 flex flex-wrap justify-end gap-3">
+                            <button type="submit" :disabled="form.processing" class="rounded-md bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-50">
+                                {{ form.processing ? 'Enregistrement…' : editingActionId ? 'Enregistrer les modifications' : 'Enregistrer la sanction' }}
                             </button>
                         </div>
                     </form>
@@ -106,6 +173,7 @@ const getTypeBadge = (type) => {
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Motif</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Par</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">
@@ -121,9 +189,32 @@ const getTypeBadge = (type) => {
                                 <td class="px-6 py-4 text-sm text-gray-600">{{ act.motif }}</td>
                                 <td class="px-6 py-4 text-sm text-gray-500">{{ act.attribue_par || '-' }}</td>
                                 <td class="px-6 py-4 text-sm text-gray-500">{{ new Date(act.date_enregistrement).toLocaleDateString('fr-FR') }}</td>
+                                <td class="whitespace-nowrap px-6 py-4 text-right text-sm">
+                                    <div class="flex justify-end gap-3">
+                                        <button type="button" class="text-emerald-700 hover:underline" @click="startEditing(act)">Modifier</button>
+                                        <button type="button" class="text-red-700 hover:underline" @click="deleteAction(act)">Supprimer</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr v-if="actions.data.length === 0">
+                                <td colspan="6" class="px-6 py-8 text-center text-sm text-gray-500">Aucune action disciplinaire enregistrée.</td>
                             </tr>
                         </tbody>
                     </table>
+                    <nav v-if="actions.links.length > 3" class="mt-4 flex flex-wrap justify-end gap-1" aria-label="Pagination des actions disciplinaires">
+                        <Link
+                            v-for="link in actions.links"
+                            :key="link.label"
+                            :href="link.url || '#'"
+                            :aria-current="link.active ? 'page' : undefined"
+                            :class="link.active ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'"
+                            class="rounded border px-3 py-2 text-sm"
+                            :aria-label="link.label.includes('Previous') ? 'Page précédente' : link.label.includes('Next') ? 'Page suivante' : `Page ${link.label}`"
+                            @click="!link.url && $event.preventDefault()"
+                        >
+                            {{ link.label.includes('Previous') ? '←' : link.label.includes('Next') ? '→' : link.label }}
+                        </Link>
+                    </nav>
                 </div>
             </div>
         </div>

@@ -9,6 +9,11 @@ const props = defineProps({
 });
 
 const search = ref(props.filters.search || '');
+const roleLabels = {
+    admin: 'Admin',
+    rh: 'RH',
+    manager: 'Manager',
+};
 
 watch(search, (value) => {
     router.get(route('users.index'), { search: value }, { preserveState: true, replace: true });
@@ -55,7 +60,7 @@ const deleteUser = (user) => {
                             <tr v-for="user in users.data" :key="user.id">
                                 <td class="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">{{ user.name }}</td>
                                 <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-600">{{ user.email }}</td>
-                                <td class="px-4 py-3 text-sm text-gray-700">{{ user.role }}</td>
+                                <td class="px-4 py-3 text-sm text-gray-700">{{ roleLabels[user.role] || user.role }}</td>
                                 <td class="px-4 py-3 text-sm text-gray-600">
                                     {{ user.employee ? `${user.employee.nom} ${user.employee.prenom} (${user.employee.matricule})` : 'Aucun' }}
                                 </td>
@@ -73,8 +78,8 @@ const deleteUser = (user) => {
 
                 <nav v-if="users.links.length > 3" class="flex flex-wrap justify-end gap-1" aria-label="Pagination">
                     <Link v-for="link in users.links" :key="link.label" :href="link.url || '#'
-                        " :aria-current="link.active ? 'page' : undefined" :class="link.active ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'" class="rounded border px-3 py-2 text-sm" @click="!link.url && $event.preventDefault()">
-                        {{ link.label.replace('&laquo; Previous', 'Précédent').replace('Next &raquo;', 'Suivant') }}
+                        " :aria-label="link.label.includes('Previous') ? 'Page précédente' : link.label.includes('Next') ? 'Page suivante' : `Page ${link.label}`" :aria-current="link.active ? 'page' : undefined" :class="link.active ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'" class="rounded border px-3 py-2 text-sm" @click="!link.url && $event.preventDefault()">
+                        {{ link.label.includes('Previous') ? '←' : link.label.includes('Next') ? '→' : link.label }}
                     </Link>
                 </nav>
             </div>

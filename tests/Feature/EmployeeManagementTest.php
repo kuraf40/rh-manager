@@ -80,6 +80,17 @@ class EmployeeManagementTest extends TestCase
         $this->actingAs($user)->get('/employees')->assertForbidden();
     }
 
+    public function test_manager_can_access_other_hr_tabs_but_not_birthdays(): void
+    {
+        /** @var User $manager */
+        $manager = User::factory()->create(['role' => 'manager']);
+
+        $this->actingAs($manager)->get('/employees')->assertOk();
+        $this->actingAs($manager)->get('/discipline')->assertOk();
+        $this->actingAs($manager)->get('/discipline/statistics')->assertOk();
+        $this->actingAs($manager)->get('/employees/birthdays')->assertForbidden();
+    }
+
     public function test_birthdays_include_only_active_employees(): void
     {
         /** @var User $hr */

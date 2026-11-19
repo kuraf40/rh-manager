@@ -152,8 +152,8 @@ const toggleStatus = (employee) => {
 
                 <nav v-if="employees.links.length > 3" class="flex flex-wrap justify-end gap-1" aria-label="Pagination">
                     <a v-for="link in employees.links" :key="link.label" :href="link.url || '#'
-                        " :aria-current="link.active ? 'page' : undefined" :class="link.active ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'" class="rounded border px-3 py-2 text-sm" @click="!link.url && $event.preventDefault()">
-                        {{ link.label.replace('&laquo; Previous', 'Précédent').replace('Next &raquo;', 'Suivant') }}
+                        " :aria-label="link.label.includes('Previous') ? 'Page précédente' : link.label.includes('Next') ? 'Page suivante' : `Page ${link.label}`" :aria-current="link.active ? 'page' : undefined" :class="link.active ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'" class="rounded border px-3 py-2 text-sm" @click="!link.url && $event.preventDefault()">
+                        {{ link.label.includes('Previous') ? '←' : link.label.includes('Next') ? '→' : link.label }}
                     </a>
                 </nav>
             </div>
