@@ -4,7 +4,6 @@ import UserForm from './Form.vue';
 import { Head, Link } from '@inertiajs/vue3';
 
 defineProps({
-    employees: Array,
     roles: Array,
 });
 </script>
@@ -22,7 +21,7 @@ defineProps({
         <div class="py-8">
             <div class="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
                 <div class="rounded-md bg-white p-5 shadow-sm">
-                    <UserForm :employees="employees" :roles="roles" />
+                    <UserForm :roles="roles" />
                 </div>
             </div>
         </div>

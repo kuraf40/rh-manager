@@ -14,6 +14,16 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::get('/users/{user}/verification', [UserController::class, 'verification'])->name('users.verification');
+    Route::post('/users/{user}/verification', [UserController::class, 'verify'])
+        ->middleware('throttle:6,1')
+        ->name('users.verification.verify');
+    Route::post('/users/{user}/verification/resend', [UserController::class, 'resendVerification'])
+        ->middleware('throttle:3,1')
+        ->name('users.verification.resend');
+});
+
 // Routes protégées par authentification
 Route::middleware(['auth', 'verified'])->group(function () {
 
@@ -39,10 +49,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/hours/{registeredHour}', [RegisteredHourController::class, 'destroy'])->name('hours.destroy');
     });
 
-    // Profil Utilisateur
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    });
 
     Route::middleware('role:admin,rh')->group(function () {
         Route::get('/employees/birthdays', [EmployeeController::class, 'birthdays'])->name('employees.birthdays');

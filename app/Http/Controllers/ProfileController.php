@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\User;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Services\UserActionVerificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,26 +17,36 @@ class ProfileController extends Controller
     /**
      * Display the user's profile form.
      */
-    public function edit(Request $request): Response
+    public function edit(): Response
     {
-        return Inertia::render('Profile/Edit', [
-            'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
-            'status' => session('status'),
-        ]);
+        return Inertia::render('Profile/Edit');
     }
 
     /**
      * Update the user's profile information.
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
-    {
-        $request->user()->fill($request->validated());
+    public function update(
+        ProfileUpdateRequest $request,
+        UserActionVerificationService $verificationService,
+    ): RedirectResponse {
+        $user = $request->user();
+        $emailChanged = $user->email !== $request->validated('email');
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        $user->name = $request->validated('name');
+
+        if ($emailChanged) {
+            $user->email = $request->validated('email');
+            $user->email_verified_at = null;
         }
 
-        $request->user()->save();
+        $user->save();
+
+        if ($emailChanged) {
+            $verificationService->send($user, $user, 'email');
+
+            return redirect()->route('users.verification', $user)
+                ->with('message', 'Un code de vérification a été envoyé par courriel.');
+        }
 
         return Redirect::route('profile.edit');
     }

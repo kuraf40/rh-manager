@@ -78,7 +78,7 @@ onBeforeUnmount(() => clearTimeout(notificationTimeout));
 
                         <div class="hidden sm:ms-6 sm:flex sm:items-center">
                             <!-- Settings Dropdown -->
-                            <div class="relative ms-3">
+                            <div v-if="userRole === 'admin'" class="relative ms-3">
                                 <Dropdown align="right" width="48">
                                     <template #trigger>
                                         <span class="inline-flex rounded-md">
@@ -120,6 +120,15 @@ onBeforeUnmount(() => clearTimeout(notificationTimeout));
                                     </template>
                                 </Dropdown>
                             </div>
+                            <Link
+                                v-else
+                                :href="route('logout')"
+                                method="post"
+                                as="button"
+                                class="rounded-md px-3 py-2 text-sm text-gray-600 hover:text-gray-900"
+                            >
+                                Déconnexion
+                            </Link>
                         </div>
 
                         <!-- Hamburger -->
@@ -205,7 +214,7 @@ onBeforeUnmount(() => clearTimeout(notificationTimeout));
                         </div>
 
                         <div class="mt-3 space-y-1">
-                            <ResponsiveNavLink :href="route('profile.edit')">
+                            <ResponsiveNavLink v-if="userRole === 'admin'" :href="route('profile.edit')">
                                 Profile
                             </ResponsiveNavLink>
                             <ResponsiveNavLink
