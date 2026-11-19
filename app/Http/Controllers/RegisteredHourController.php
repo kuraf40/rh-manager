@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Employee;
 use App\Models\RegisteredHour;
+use App\Services\OvertimeRegistrationService;
 use Carbon\CarbonImmutable;
 use Carbon\WeekDay;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -17,71 +20,82 @@ class RegisteredHourController extends Controller
     public function index(): Response
     {
         return Inertia::render('Hours/Index', [
-            'employees' => Employee::where('actif', true)->orderBy('nom')->get(['id', 'matricule', 'nom', 'prenom']),
+            'employees' => Employee::query()
+                ->where('actif', true)
+                ->whereRaw('LOWER(fonction) = ?', ['magasinier'])
+                ->orderBy('nom')
+                ->get(['id', 'matricule', 'nom', 'prenom']),
             'recentHours' => RegisteredHour::with('employee')
                 ->latest()
                 ->take(10)
                 ->get(),
+            'today' => now()->toDateString(),
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, OvertimeRegistrationService $overtimeRegistration): RedirectResponse
     {
         $validated = $request->validate([
-            'employee_id' => 'required|exists:employees,id',
-            'date_enreg' => 'required|date',
+            'employee_id' => [
+                'required',
+                Rule::exists(Employee::class, 'id')->where(function ($query): void {
+                    $query->where('actif', true)
+                        ->whereRaw('LOWER(fonction) = ?', ['magasinier']);
+                }),
+            ],
+            'date_enreg' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'vacation' => ['required', Rule::in(['07:00-15:00', '15:00-23:00', '23:00-07:00'])],
             'heure_debut' => ['required', 'date_format:H:i'],
             'heure_fin' => ['required', 'date_format:H:i'],
-            'pause_minutes' => ['nullable', 'integer', 'min:0', 'max:720'],
-            'h_jour' => ['required', 'numeric', 'min:0', 'max:24'],
-            'h_nuit' => ['required', 'numeric', 'min:0', 'max:24'],
-            'h_ferie_jour' => ['required', 'numeric', 'min:0', 'max:24'],
-            'h_ferie_nuit' => ['required', 'numeric', 'min:0', 'max:24'],
+            'type_jour' => ['required', Rule::in(['ferie', 'non_ferie'])],
+            'forcer' => ['sometimes', 'boolean'],
+        ], [
+            'employee_id.required' => 'Sélectionnez un magasinier actif.',
+            'employee_id.exists' => 'Sélectionnez un magasinier actif.',
+            'date_enreg.required' => 'La date est obligatoire.',
+            'date_enreg.before_or_equal' => 'La date ne peut pas être dans le futur.',
+            'vacation.required' => 'Sélectionnez une vacation.',
+            'vacation.in' => 'La vacation sélectionnée est invalide.',
+            'heure_debut.required' => 'L’heure de début est obligatoire.',
+            'heure_fin.required' => 'L’heure de fin est obligatoire.',
+            'type_jour.required' => 'Indiquez si le jour est férié.',
+            'type_jour.in' => 'Le type de jour sélectionné est invalide.',
         ]);
 
-        $debut = CarbonImmutable::parse($validated['date_enreg'].' '.$validated['heure_debut']);
-        $fin = CarbonImmutable::parse($validated['date_enreg'].' '.$validated['heure_fin']);
-
-        if ($fin->lessThanOrEqualTo($debut)) {
-            $fin = $fin->addDay();
+        foreach (['heure_debut', 'heure_fin'] as $timeField) {
+            if ((int) substr($validated[$timeField], 3, 2) % 30 !== 0) {
+                throw ValidationException::withMessages([
+                    $timeField => 'Les heures doivent être saisies par tranches de 30 minutes.',
+                ]);
+            }
         }
 
-        $pauseMinutes = (int) ($validated['pause_minutes'] ?? 0);
-        $totalMinutes = $debut->diffInMinutes($fin) - $pauseMinutes;
-        $totalHeures = round($totalMinutes / 60, 2);
-        $ventilation = round(
-            (float) $validated['h_jour'] +
-            (float) $validated['h_nuit'] +
-            (float) $validated['h_ferie_jour'] +
-            (float) $validated['h_ferie_nuit'],
-            2,
+        $segments = $overtimeRegistration->buildSegments(
+            $validated['date_enreg'],
+            $validated['heure_debut'],
+            $validated['heure_fin'],
+            $validated['vacation'],
+            $validated['type_jour'],
+        );
+        $weeklyLimitWarning = $overtimeRegistration->weeklyLimitWarning(
+            (int) $validated['employee_id'],
+            $segments,
         );
 
-        if ($totalMinutes <= 0) {
-            throw ValidationException::withMessages(['pause_minutes' => 'La pause doit être inférieure à la durée du poste.']);
+        if ($weeklyLimitWarning !== null && ! ($validated['forcer'] ?? false)) {
+            throw ValidationException::withMessages(['forcer' => $weeklyLimitWarning]);
         }
 
-        if (abs($ventilation - $totalHeures) > 0.01) {
-            throw ValidationException::withMessages(['h_jour' => 'La somme des catégories doit correspondre à la durée nette du poste.']);
-        }
+        DB::transaction(function () use ($validated, $segments): void {
+            foreach ($segments as $segment) {
+                RegisteredHour::create([
+                    'employee_id' => $validated['employee_id'],
+                    ...$segment,
+                ]);
+            }
+        });
 
-        $dateEnreg = CarbonImmutable::parse($validated['date_enreg']);
-
-        RegisteredHour::create([
-            'employee_id' => $validated['employee_id'],
-            'date_enreg' => $validated['date_enreg'],
-            'heure_debut' => $validated['heure_debut'],
-            'heure_fin' => $validated['heure_fin'],
-            'total_heures' => $totalHeures,
-            'h_jour' => $validated['h_jour'],
-            'h_nuit' => $validated['h_nuit'],
-            'h_ferie_jour' => $validated['h_ferie_jour'],
-            'h_ferie_nuit' => $validated['h_ferie_nuit'],
-            'mois_reference' => $dateEnreg->format('Y-m'),
-            'semaine_reference' => $dateEnreg->weekOfYear,
-        ]);
-
-        return back()->with('message', 'Heures enregistrées avec succès.');
+        return back()->with('message', 'Heures supplémentaires enregistrées avec succès.');
     }
 
     public function summary(Request $request): Response

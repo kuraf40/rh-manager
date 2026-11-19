@@ -37,12 +37,13 @@ Le seeder crée le compte local `admin@example.com` avec le mot de passe initial
 
 - Authentification, profil et administration admin des comptes; inscription publique désactivée.
 - Employés: recherche, pagination, gestion des champs historiques, modification, désactivation/réactivation sans effacer l'historique et anniversaires à venir.
-- Pointages: durée nette à partir des heures de début/fin et pauses, postes traversant minuit, validation de la ventilation jour/nuit/férié.
+- Heures supplémentaires: saisie réservée aux magasiniers actifs, date non future, vacation, horaires par tranches de 30 minutes et choix manuel du jour férié. Les créneaux de pause/hors vacation sont contrôlés; la durée et les catégories jour/nuit/férié sont calculées automatiquement. Les saisies traversant minuit sont séparées par date.
+- Plafond hebdomadaire historique de 5 h: avertissement avec confirmation explicite, calculé sur les semaines du cycle de référence du 20 au 19. Les rapports existants restent filtrés par semaine ou mois civil.
 - Rapports hebdomadaires et mensuels agrégés par employé; paramètres des taux historiques configurables.
 - Discipline: quatre types d'action, historique daté et statistiques par employé.
 - Accès: employés/discipline admin-RH; saisie heures admin-RH-manager; rapports et taux admin-RH; comptes admin seulement.
 
-Les taux ne calculent pas de montant salarial. Les catégories horaires sont déclarées par le gestionnaire, sans inventer de calendrier férié. Les tables `overtime_settings`, `timeslots` et `overtimes` sont un schéma préexistant non utilisé; `registered_hours` et `overtime_parameters` sont les modèles actifs.
+Les taux ne calculent pas de montant salarial. Le type férié est déclaré manuellement à la saisie; aucun calendrier férié n'est inventé. `registered_hours.vacation` et `registered_hours.type_jour` conservent les informations de la saisie; ces colonnes sont nulles pour les anciennes heures importées. Les tables `overtime_settings`, `timeslots` et `overtimes` sont un schéma préexistant non utilisé; `registered_hours` et `overtime_parameters` sont les modèles actifs.
 
 ## Reprise legacy
 
@@ -72,6 +73,7 @@ L'import reprend employés, heures, quatre tables disciplinaires et taux. Heures
 
 - Résoudre manuellement le doublon `5533`; relancer l'audit puis importer la ligne correcte si elle est identifiée.
 - Rapprocher les 4 anciens comptes, convertir leurs rôles et réinitialiser leurs mots de passe avant de les recréer.
+- Confirmer avec les RH les plages de pause/hors vacation et le plafond hebdomadaire historique de 5 h avant de les utiliser comme règle de paie.
 - Confirmer les règles métier locales des majorations et jours fériés avant d'utiliser les rapports pour la paie.
 - Décider si `timeslots/overtimes` sera supprimé par une migration future ou développé comme workflow séparé.
 
@@ -84,6 +86,8 @@ php -d extension_dir=C:\MAMP\bin\php\php8.3.1\ext -d extension=php_pdo_sqlite.dl
 npm run build
 php artisan route:list
 ```
+
+Dernière vérification locale: les tests ciblés des heures et de l'import legacy passent (**13 tests / 78 assertions**). La suite complète compte **53 tests / 217 assertions**; 52 passent. L'unique échec restant est le test préexistant `InertiaSharedPropsTest::test_example`, qui attend un `200` sur `/` alors que la route redirige vers la connexion (`302`).
 
 - `routes/web.php`: routes et permissions.
 - `app/Http/Controllers`: traitements RH.

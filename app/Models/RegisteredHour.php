@@ -12,6 +12,7 @@ class RegisteredHour extends Model
 
     protected $fillable = [
         'employee_id', 'date_enreg', 'heure_debut', 'heure_fin',
+        'vacation', 'type_jour',
         'total_heures', 'h_jour', 'h_nuit', 'h_ferie_jour',
         'h_ferie_nuit', 'mois_reference', 'semaine_reference',
     ];
