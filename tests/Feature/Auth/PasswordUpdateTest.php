@@ -11,41 +11,16 @@ class PasswordUpdateTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_password_can_be_updated(): void
+    public function test_password_cannot_be_updated_directly_without_email_verification(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'manager']);
 
-        $response = $this
-            ->actingAs($user)
-            ->from('/profile')
-            ->put('/password', [
-                'current_password' => 'password',
-                'password' => 'new-password',
-                'password_confirmation' => 'new-password',
-            ]);
+        $this->actingAs($user)->put('/password', [
+            'current_password' => 'password',
+            'password' => 'A-new-long-password-4',
+            'password_confirmation' => 'A-new-long-password-4',
+        ])->assertNotFound();
 
-        $response
-            ->assertSessionHasNoErrors()
-            ->assertRedirect('/profile');
-
-        $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
-    }
-
-    public function test_correct_password_must_be_provided_to_update_password(): void
-    {
-        $user = User::factory()->create();
-
-        $response = $this
-            ->actingAs($user)
-            ->from('/profile')
-            ->put('/password', [
-                'current_password' => 'wrong-password',
-                'password' => 'new-password',
-                'password_confirmation' => 'new-password',
-            ]);
-
-        $response
-            ->assertSessionHasErrors('current_password')
-            ->assertRedirect('/profile');
+        $this->assertTrue(Hash::check('password', $user->refresh()->password));
     }
 }

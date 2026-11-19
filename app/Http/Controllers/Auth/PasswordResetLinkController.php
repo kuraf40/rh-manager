@@ -3,49 +3,79 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Services\UserActionVerificationService;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class PasswordResetLinkController extends Controller
 {
-    /**
-     * Display the password reset link request view.
-     */
-    public function create(): Response
+    public function create(Request $request): Response
     {
+        if ($request->boolean('new')) {
+            $request->session()->forget('password_reset_email');
+        }
+
         return Inertia::render('Auth/ForgotPassword', [
             'status' => session('status'),
+            'email' => session('password_reset_email'),
         ]);
     }
 
-    /**
-     * Handle an incoming password reset link request.
-     *
-     * @throws ValidationException
-     */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, UserActionVerificationService $verificationService): RedirectResponse
     {
-        $request->validate([
-            'email' => 'required|email',
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
         ]);
 
-        // We will send the password reset link to this user. Once we have attempted
-        // to send the link, we will examine the response then see the message we
-        // need to show to the user. Finally, we'll send out a proper response.
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
+        $administrator = User::query()
+            ->where('email', $validated['email'])
+            ->where('role', 'admin')
+            ->first();
 
-        if ($status == Password::RESET_LINK_SENT) {
-            return back()->with('status', __($status));
+        if ($administrator !== null) {
+            $verificationService->send($administrator, $administrator, 'password');
         }
 
-        throw ValidationException::withMessages([
-            'email' => [trans($status)],
+        $request->session()->put('password_reset_email', $validated['email']);
+
+        return back()->with('status', 'Si cette adresse correspond à un compte administrateur, un code de vérification a été envoyé.');
+    }
+
+    public function verify(Request $request, UserActionVerificationService $verificationService): RedirectResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+            'code' => ['required', 'digits:6'],
+            'password' => ['required', 'confirmed', 'min:12'],
         ]);
+
+        $administrator = User::query()
+            ->where('email', $validated['email'])
+            ->where('role', 'admin')
+            ->first();
+
+        if ($administrator === null) {
+            throw ValidationException::withMessages([
+                'code' => ['Le code de vérification est invalide ou expiré.'],
+            ]);
+        }
+
+        $verificationService->verify(
+            $administrator,
+            $administrator,
+            $validated['code'],
+            $validated['password'],
+        );
+
+        Event::dispatch(new PasswordReset($administrator));
+        $request->session()->forget('password_reset_email');
+
+        return redirect()->route('login')->with('status', 'Le mot de passe administrateur a été modifié.');
     }
 }

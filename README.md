@@ -33,9 +33,32 @@ php artisan serve
 
 Le seeder crée le compte local `admin@example.com` avec le mot de passe initial `password` et les taux par défaut. Change ce mot de passe avant toute exposition hors poste local. Vite en mode développement se lance dans un autre terminal avec `npm run dev`.
 
+## Comptes et verification par courriel
+
+- L'inscription publique est desactivee. Seul un administrateur peut creer, modifier ou supprimer les comptes.
+- A la creation d'un compte, un code a 6 chiffres est envoye a l'adresse saisie. L'administrateur doit le confirmer pour verifier l'adresse et activer l'acces.
+- Tout changement de mot de passe par l'administrateur est applique seulement apres confirmation du code envoye a l'adresse du membre. La recuperation du mot de passe administrateur utilise aussi un code.
+- Les codes expirent apres 15 minutes et sont limites a cinq essais. Les membres non administrateurs n'ont pas de profil et ne peuvent pas modifier leur mot de passe.
+- Le logo Ubipharm fourni est utilise sur l'ecran de connexion et dans la navigation de l'application.
+
+La configuration locale utilise `MAIL_MAILER=log` par defaut: les courriels ne sont alors pas remis aux boites de reception. Pour envoyer les codes en reel, configurez un serveur SMTP autorise dans `.env`, par exemple:
+
+```dotenv
+MAIL_MAILER=smtp
+MAIL_SCHEME=tls
+MAIL_HOST=smtp.votre-fournisseur.example
+MAIL_PORT=587
+MAIL_USERNAME=votre-identifiant
+MAIL_PASSWORD=votre-mot-de-passe-smtp
+MAIL_FROM_ADDRESS=adresse-expediteur@votre-domaine.example
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+Utilisez les identifiants SMTP fournis par votre organisation, ne les commitez pas, puis executez `php artisan config:clear`. Avant toute utilisation, remplacez egalement `admin@example.com` par une adresse administrateur valide pouvant recevoir les codes.
+
 ## Fonctionnalités livrées
 
-- Authentification, profil et administration admin des comptes; seuls les rôles Admin, RH et Manager peuvent être attribués, et l'inscription publique est désactivée.
+- Authentification, profil réservé à l'administrateur et administration des comptes; seuls les rôles Admin, RH et Manager peuvent être attribués, et l'inscription publique est désactivée.
 - Employés: recherche, pagination, gestion des champs historiques, modification, désactivation/réactivation sans effacer l'historique et anniversaires à venir.
 - Heures supplémentaires: saisie réservée aux magasiniers actifs, date non future, vacation, horaires par tranches de 30 minutes et choix manuel du jour férié. Les créneaux de pause/hors vacation sont contrôlés; la durée et les catégories jour/nuit/férié sont calculées automatiquement. Les saisies traversant minuit sont séparées par date. L'historique est paginé et les responsables autorisés peuvent corriger ou supprimer une saisie; une modification ne peut pas créer un nouveau segment traversant minuit.
 - Plafond hebdomadaire historique de 5 h: avertissement avec confirmation explicite, calculé sur les semaines du cycle de référence du 20 au 19. Le rapport hebdomadaire suit la semaine lundi-dimanche; le rapport mensuel suit le cycle du 20 au 19.

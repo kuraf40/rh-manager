@@ -4,31 +4,49 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { watch } from 'vue';
 
-defineProps({
+const props = defineProps({
     status: {
         type: String,
+    },
+    email: {
+        type: String,
+        default: '',
     },
 });
 
 const form = useForm({
-    email: '',
+    email: props.email,
+    code: '',
+    password: '',
+    password_confirmation: '',
 });
 
-const submit = () => {
+watch(() => props.email, (email) => {
+    if (email) {
+        form.email = email;
+    }
+});
+
+const requestCode = () => {
     form.post(route('password.email'));
+};
+
+const resetPassword = () => {
+    form.post(route('password.verify'), {
+        onFinish: () => form.reset('code', 'password', 'password_confirmation'),
+    });
 };
 </script>
 
 <template>
     <GuestLayout>
-        <Head title="Forgot Password" />
+        <Head title="Mot de passe oublié" />
 
         <div class="mb-4 text-sm text-gray-600">
-            Forgot your password? No problem. Just let us know your email
-            address and we will email you a password reset link that will allow
-            you to choose a new one.
+            La récupération du mot de passe est réservée à l’administrateur. Un code sera envoyé à son adresse courriel.
         </div>
 
         <div
@@ -38,9 +56,9 @@ const submit = () => {
             {{ status }}
         </div>
 
-        <form @submit.prevent="submit">
+        <form v-if="!email" @submit.prevent="requestCode">
             <div>
-                <InputLabel for="email" value="Email" />
+                <InputLabel for="email" value="Adresse courriel administrateur" />
 
                 <TextInput
                     id="email"
@@ -49,7 +67,7 @@ const submit = () => {
                     v-model="form.email"
                     required
                     autofocus
-                    autocomplete="username"
+                    autocomplete="email"
                 />
 
                 <InputError class="mt-2" :message="form.errors.email" />
@@ -60,8 +78,40 @@ const submit = () => {
                     :class="{ 'opacity-25': form.processing }"
                     :disabled="form.processing"
                 >
-                    Email Password Reset Link
+                    Envoyer le code
                 </PrimaryButton>
+            </div>
+        </form>
+
+        <form v-else class="space-y-4" @submit.prevent="resetPassword">
+            <input v-model="form.email" type="hidden" />
+            <div>
+                <InputLabel for="code" value="Code reçu par courriel" />
+                <TextInput id="code" v-model="form.code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code" class="mt-1 block w-full" />
+                <InputError class="mt-2" :message="form.errors.code" />
+            </div>
+            <div>
+                <InputLabel for="password" value="Nouveau mot de passe" />
+                <TextInput id="password" v-model="form.password" type="password" minlength="12" required autocomplete="new-password" class="mt-1 block w-full" />
+                <InputError class="mt-2" :message="form.errors.password" />
+            </div>
+            <div>
+                <InputLabel for="password_confirmation" value="Confirmer le mot de passe" />
+                <TextInput id="password_confirmation" v-model="form.password_confirmation" type="password" minlength="12" required autocomplete="new-password" class="mt-1 block w-full" />
+                <InputError class="mt-2" :message="form.errors.password_confirmation" />
+            </div>
+            <div class="flex justify-end">
+                <div class="flex items-center gap-4">
+                    <button type="button" class="text-sm text-emerald-800 underline disabled:opacity-50" :disabled="form.processing" @click="requestCode">
+                        Renvoyer le code
+                    </button>
+                    <Link :href="route('password.request', { new: 1 })" class="text-sm text-gray-600 underline">
+                        Changer d’adresse
+                    </Link>
+                    <PrimaryButton :disabled="form.processing">
+                        Vérifier le code et modifier
+                    </PrimaryButton>
+                </div>
             </div>
         </form>
     </GuestLayout>

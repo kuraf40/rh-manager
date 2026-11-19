@@ -31,6 +31,18 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('dashboard', absolute: false));
     }
 
+    public function test_unverified_users_are_redirected_to_email_verification(): void
+    {
+        $user = User::factory()->unverified()->create();
+
+        $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard', absolute: false));
+
+        $this->get('/dashboard')->assertRedirect(route('verification.notice'));
+    }
+
     public function test_dashboard_shares_the_authenticated_user_with_inertia(): void
     {
         $user = User::factory()->create(['role' => 'employee']);

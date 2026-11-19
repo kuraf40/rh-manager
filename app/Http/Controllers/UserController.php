@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Employee;
 use App\Models\User;
+use App\Models\UserActionVerification;
+use App\Services\UserActionVerificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -40,36 +42,29 @@ class UserController extends Controller
     public function create(): Response
     {
         return Inertia::render('Users/Create', [
-            'employees' => $this->availableEmployees(),
             'roles' => self::ROLES,
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, UserActionVerificationService $verificationService): RedirectResponse
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'confirmed', 'min:12'],
             'role' => ['required', Rule::in(self::ROLES)],
-            'employee_id' => ['nullable', 'integer', 'exists:employees,id'],
         ]);
 
-        $user = DB::transaction(function () use ($validated): User {
-            $user = User::create([
-                'name' => $validated['name'],
-                'email' => $validated['email'],
-                'password' => Hash::make($validated['password']),
-                'role' => $validated['role'],
-                'email_verified_at' => now(),
-            ]);
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'role' => $validated['role'],
+        ]);
 
-            $this->syncEmployee($user, $validated['employee_id'] ?? null);
+        $verificationService->send($request->user(), $user, 'create');
 
-            return $user;
-        });
-
-        return redirect()->route('users.edit', $user)->with('message', 'Compte créé.');
+        return redirect()->route('users.verification', $user)->with('message', 'Code de vérification envoyé par courriel.');
     }
 
     public function edit(User $user): Response
@@ -81,8 +76,11 @@ class UserController extends Controller
         ]);
     }
 
-    public function update(Request $request, User $user): RedirectResponse
-    {
+    public function update(
+        Request $request,
+        User $user,
+        UserActionVerificationService $verificationService,
+    ): RedirectResponse {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
@@ -95,26 +93,81 @@ class UserController extends Controller
             return back()->withErrors(['role' => 'Le dernier administrateur ne peut pas être rétrogradé.']);
         }
 
-        DB::transaction(function () use ($validated, $user): void {
+        $emailChanged = $user->email !== $validated['email'];
+        $passwordChanged = ($validated['password'] ?? '') !== '';
+
+        DB::transaction(function () use ($validated, $user, $emailChanged): void {
             $user->fill([
                 'name' => $validated['name'],
                 'email' => $validated['email'],
                 'role' => $validated['role'],
             ]);
 
-            if (($validated['password'] ?? '') !== '') {
-                $user->password = Hash::make($validated['password']);
-            }
-
-            if ($user->isDirty('email')) {
-                $user->email_verified_at = now();
+            if ($emailChanged) {
+                $user->email_verified_at = null;
             }
 
             $user->save();
             $this->syncEmployee($user, $validated['employee_id'] ?? null);
         });
 
+        if ($passwordChanged || $emailChanged) {
+            $action = $passwordChanged ? 'password' : 'email';
+            $verificationService->send($request->user(), $user, $action, $validated['password'] ?? null);
+
+            return redirect()->route('users.verification', $user)
+                ->with('message', 'Un code de vérification a été envoyé par courriel.');
+        }
+
         return back()->with('message', 'Compte mis à jour.');
+    }
+
+    public function verification(User $user): Response|RedirectResponse
+    {
+        $verification = UserActionVerification::query()
+            ->where('user_id', $user->id)
+            ->first();
+
+        if ($verification === null) {
+            return redirect()->route('users.edit', $user);
+        }
+
+        return Inertia::render('Users/VerifyAction', [
+            'user' => $user->only(['id', 'name']),
+            'verification' => [
+                'action' => $verification->action,
+                'email' => $verification->email,
+                'expiresAt' => $verification->expires_at->toIso8601String(),
+            ],
+        ]);
+    }
+
+    public function verify(
+        Request $request,
+        User $user,
+        UserActionVerificationService $verificationService,
+    ): RedirectResponse {
+        $validated = $request->validate([
+            'code' => ['required', 'digits:6'],
+        ]);
+
+        $verificationService->verify($request->user(), $user, $validated['code']);
+
+        return redirect()->route('users.edit', $user)->with('message', 'Adresse courriel confirmée.');
+    }
+
+    public function resendVerification(
+        Request $request,
+        User $user,
+        UserActionVerificationService $verificationService,
+    ): RedirectResponse {
+        $verification = UserActionVerification::query()
+            ->where('user_id', $user->id)
+            ->firstOrFail();
+
+        $verificationService->resend($request->user(), $verification);
+
+        return back()->with('message', 'Un nouveau code a été envoyé par courriel.');
     }
 
     public function destroy(User $user): RedirectResponse
