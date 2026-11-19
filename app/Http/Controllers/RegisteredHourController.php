@@ -27,50 +27,23 @@ class RegisteredHourController extends Controller
                 ->whereRaw('LOWER(fonction) = ?', ['magasinier'])
                 ->orderBy('nom')
                 ->get(['id', 'matricule', 'nom', 'prenom']),
-            'recentHours' => RegisteredHour::with('employee')
-                ->latest()
-                ->take(10)
-                ->get(),
+            'editableEmployees' => Employee::query()
+                ->orderBy('nom')
+                ->orderBy('prenom')
+                ->get(['id', 'matricule', 'nom', 'prenom']),
+            'hours' => RegisteredHour::query()
+                ->with('employee:id,matricule,nom,prenom')
+                ->orderByDesc('date_enreg')
+                ->orderByDesc('id')
+                ->paginate(15)
+                ->withQueryString(),
             'today' => now()->toDateString(),
         ]);
     }
 
     public function store(Request $request, OvertimeRegistrationService $overtimeRegistration): RedirectResponse
     {
-        $validated = $request->validate([
-            'employee_id' => [
-                'required',
-                Rule::exists(Employee::class, 'id')->where(function ($query): void {
-                    $query->where('actif', true)
-                        ->whereRaw('LOWER(fonction) = ?', ['magasinier']);
-                }),
-            ],
-            'date_enreg' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
-            'vacation' => ['required', Rule::in(['07:00-15:00', '15:00-23:00', '23:00-07:00'])],
-            'heure_debut' => ['required', 'date_format:H:i'],
-            'heure_fin' => ['required', 'date_format:H:i'],
-            'type_jour' => ['required', Rule::in(['ferie', 'non_ferie'])],
-            'forcer' => ['sometimes', 'boolean'],
-        ], [
-            'employee_id.required' => 'Sélectionnez un magasinier actif.',
-            'employee_id.exists' => 'Sélectionnez un magasinier actif.',
-            'date_enreg.required' => 'La date est obligatoire.',
-            'date_enreg.before_or_equal' => 'La date ne peut pas être dans le futur.',
-            'vacation.required' => 'Sélectionnez une vacation.',
-            'vacation.in' => 'La vacation sélectionnée est invalide.',
-            'heure_debut.required' => 'L’heure de début est obligatoire.',
-            'heure_fin.required' => 'L’heure de fin est obligatoire.',
-            'type_jour.required' => 'Indiquez si le jour est férié.',
-            'type_jour.in' => 'Le type de jour sélectionné est invalide.',
-        ]);
-
-        foreach (['heure_debut', 'heure_fin'] as $timeField) {
-            if ((int) substr($validated[$timeField], 3, 2) % 30 !== 0) {
-                throw ValidationException::withMessages([
-                    $timeField => 'Les heures doivent être saisies par tranches de 30 minutes.',
-                ]);
-            }
-        }
+        $validated = $this->validatedHourInput($request);
 
         $segments = $overtimeRegistration->buildSegments(
             $validated['date_enreg'],
@@ -98,6 +71,53 @@ class RegisteredHourController extends Controller
         });
 
         return back()->with('message', 'Heures supplémentaires enregistrées avec succès.');
+    }
+
+    public function update(
+        Request $request,
+        RegisteredHour $registeredHour,
+        OvertimeRegistrationService $overtimeRegistration,
+    ): RedirectResponse {
+        $validated = $this->validatedHourInput($request, true);
+        $segments = $overtimeRegistration->buildSegments(
+            $validated['date_enreg'],
+            $validated['heure_debut'],
+            $validated['heure_fin'],
+            $validated['vacation'],
+            $validated['type_jour'],
+        );
+
+        if (count($segments) !== 1) {
+            throw ValidationException::withMessages([
+                'heure_fin' => 'La modification doit rester sur une seule date. Modifiez séparément chaque ligne traversant minuit.',
+            ]);
+        }
+
+        $weeklyLimitWarning = $overtimeRegistration->weeklyLimitWarning(
+            (int) $validated['employee_id'],
+            $segments,
+            (int) $registeredHour->getKey(),
+        );
+
+        if ($weeklyLimitWarning !== null && ! ($validated['forcer'] ?? false)) {
+            throw ValidationException::withMessages(['forcer' => $weeklyLimitWarning]);
+        }
+
+        DB::transaction(function () use ($validated, $registeredHour, $segments): void {
+            $registeredHour->update([
+                'employee_id' => $validated['employee_id'],
+                ...$segments[0],
+            ]);
+        });
+
+        return back()->with('message', 'Saisie d’heures mise à jour.');
+    }
+
+    public function destroy(RegisteredHour $registeredHour): RedirectResponse
+    {
+        $registeredHour->delete();
+
+        return back()->with('message', 'Saisie d’heures supprimée.');
     }
 
     public function summary(Request $request, OvertimeRateCalculator $rateCalculator): Response
@@ -153,5 +173,61 @@ class RegisteredHourController extends Controller
             'startDate' => $startDate->toDateString(),
             'endDate' => $endDate->toDateString(),
         ]);
+    }
+
+    /**
+     * @return array{
+     *     employee_id: int,
+     *     date_enreg: string,
+     *     vacation: string,
+     *     heure_debut: string,
+     *     heure_fin: string,
+     *     type_jour: string,
+     *     forcer?: bool
+     * }
+     */
+    private function validatedHourInput(Request $request, bool $allowAnyEmployee = false): array
+    {
+        $employeeRule = Rule::exists(Employee::class, 'id');
+
+        if (! $allowAnyEmployee) {
+            $employeeRule->where(function ($query): void {
+                $query->where('actif', true)
+                    ->whereRaw('LOWER(fonction) = ?', ['magasinier']);
+            });
+        }
+
+        $validated = $request->validate([
+            'employee_id' => ['required', $employeeRule],
+            'date_enreg' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'vacation' => ['required', Rule::in(['07:00-15:00', '15:00-23:00', '23:00-07:00'])],
+            'heure_debut' => ['required', 'date_format:H:i'],
+            'heure_fin' => ['required', 'date_format:H:i'],
+            'type_jour' => ['required', Rule::in(['ferie', 'non_ferie'])],
+            'forcer' => ['sometimes', 'boolean'],
+        ], [
+            'employee_id.required' => $allowAnyEmployee ? 'Sélectionnez un employé.' : 'Sélectionnez un magasinier actif.',
+            'employee_id.exists' => $allowAnyEmployee ? 'L’employé sélectionné est invalide.' : 'Sélectionnez un magasinier actif.',
+            'date_enreg.required' => 'La date est obligatoire.',
+            'date_enreg.before_or_equal' => 'La date ne peut pas être dans le futur.',
+            'vacation.required' => 'Sélectionnez une vacation.',
+            'vacation.in' => 'La vacation sélectionnée est invalide.',
+            'heure_debut.required' => 'L’heure de début est obligatoire.',
+            'heure_fin.required' => 'L’heure de fin est obligatoire.',
+            'type_jour.required' => 'Indiquez si le jour est férié.',
+            'type_jour.in' => 'Le type de jour sélectionné est invalide.',
+        ]);
+
+        foreach (['heure_debut', 'heure_fin'] as $timeField) {
+            if ((int) substr($validated[$timeField], 3, 2) % 30 !== 0) {
+                throw ValidationException::withMessages([
+                    $timeField => 'Les heures doivent être saisies par tranches de 30 minutes.',
+                ]);
+            }
+        }
+
+        $validated['employee_id'] = (int) $validated['employee_id'];
+
+        return $validated;
     }
 }

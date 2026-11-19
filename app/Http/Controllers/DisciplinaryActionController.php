@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DisciplinaryAction;
 use App\Models\Employee;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -48,21 +49,43 @@ class DisciplinaryActionController extends Controller
         return Inertia::render('Discipline/Statistics', ['employees' => $employees]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'type' => 'required|in:demande_explication,avertissement,blame,mise_a_pied',
-            'employee_id' => 'required|exists:employees,id',
-            'code' => 'nullable|string|max:20',
-            'motif' => 'required|string',
-            'resume' => 'nullable|string',
-            'nb_jours' => 'nullable|integer|min:1',
-            'attribue_par' => 'nullable|string|max:100',
-        ]);
+        $validated = $request->validate($this->actionRules());
 
         $validated['date_enregistrement'] = now();
         DisciplinaryAction::create($validated);
 
         return redirect()->back()->with('message', 'Sanction enregistrée avec succès.');
+    }
+
+    public function update(Request $request, DisciplinaryAction $disciplinaryAction): RedirectResponse
+    {
+        $disciplinaryAction->update($request->validate($this->actionRules()));
+
+        return back()->with('message', 'Action disciplinaire mise à jour.');
+    }
+
+    public function destroy(DisciplinaryAction $disciplinaryAction): RedirectResponse
+    {
+        $disciplinaryAction->delete();
+
+        return back()->with('message', 'Action disciplinaire supprimée.');
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    private function actionRules(): array
+    {
+        return [
+            'type' => ['required', 'in:demande_explication,avertissement,blame,mise_a_pied'],
+            'employee_id' => ['required', 'exists:employees,id'],
+            'code' => ['nullable', 'string', 'max:20'],
+            'motif' => ['required', 'string'],
+            'resume' => ['nullable', 'string'],
+            'nb_jours' => ['nullable', 'integer', 'min:1'],
+            'attribue_par' => ['nullable', 'string', 'max:100'],
+        ];
     }
 }

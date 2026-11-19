@@ -26,7 +26,7 @@ class RegisteredHourTest extends TestCase
             'heure_debut' => '10:00',
             'heure_fin' => '11:00',
             'type_jour' => 'ferie',
-        ])->assertRedirect();
+        ])->assertRedirect()->assertSessionHas('message', 'Heures supplémentaires enregistrées avec succès.');
 
         $this->assertDatabaseHas('registered_hours', [
             'employee_id' => $employee->id,
@@ -39,6 +39,17 @@ class RegisteredHourTest extends TestCase
             'mois_reference' => '2026-09',
             'semaine_reference' => 2,
         ]);
+    }
+
+    public function test_success_message_is_shared_with_authenticated_pages(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)->withSession(['message' => 'Enregistrement confirmé.'])
+            ->get('/hours')
+            ->assertInertia(fn ($page) => $page->component('Hours/Index')
+                ->where('flash.message', 'Enregistrement confirmé.'));
     }
 
     public function test_overtime_crossing_midnight_is_split_into_its_calendar_days(): void
@@ -152,6 +163,167 @@ class RegisteredHourTest extends TestCase
             'h_jour' => 0,
             'h_nuit' => 1,
         ]);
+    }
+
+    public function test_registered_hour_can_be_updated_without_counting_its_old_value_twice(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'admin']);
+        $employee = $this->createEmployee('HOUR-111');
+        $hour = RegisteredHour::create([
+            'employee_id' => $employee->id,
+            'date_enreg' => '2026-09-28',
+            'heure_debut' => '10:00',
+            'heure_fin' => '11:00',
+            'vacation' => '07:00-15:00',
+            'type_jour' => 'non_ferie',
+            'total_heures' => 1,
+            'h_jour' => 1,
+            'h_nuit' => 0,
+            'h_ferie_jour' => 0,
+            'h_ferie_nuit' => 0,
+            'mois_reference' => '2026-09',
+            'semaine_reference' => 2,
+        ]);
+        RegisteredHour::create([
+            'employee_id' => $employee->id,
+            'date_enreg' => '2026-09-28',
+            'heure_debut' => '08:00',
+            'heure_fin' => '12:00',
+            'vacation' => '07:00-15:00',
+            'type_jour' => 'non_ferie',
+            'total_heures' => 4,
+            'h_jour' => 4,
+            'h_nuit' => 0,
+            'h_ferie_jour' => 0,
+            'h_ferie_nuit' => 0,
+            'mois_reference' => '2026-09',
+            'semaine_reference' => 2,
+        ]);
+
+        $this->actingAs($admin)->put(route('hours.update', $hour), [
+            'employee_id' => $employee->id,
+            'date_enreg' => '2026-09-28',
+            'vacation' => '07:00-15:00',
+            'heure_debut' => '10:00',
+            'heure_fin' => '11:00',
+            'type_jour' => 'ferie',
+        ])->assertRedirect()->assertSessionHas('message', 'Saisie d’heures mise à jour.');
+
+        $this->assertDatabaseHas('registered_hours', [
+            'id' => $hour->id,
+            'total_heures' => 1,
+            'h_jour' => 0,
+            'h_ferie_jour' => 1,
+            'type_jour' => 'ferie',
+        ]);
+        $this->assertDatabaseCount('registered_hours', 2);
+    }
+
+    public function test_registered_hour_update_cannot_create_an_extra_midnight_segment(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'admin']);
+        $employee = $this->createEmployee('HOUR-112');
+        $hour = RegisteredHour::create([
+            'employee_id' => $employee->id,
+            'date_enreg' => '2026-09-28',
+            'heure_debut' => '23:30',
+            'heure_fin' => '00:00',
+            'vacation' => '15:00-23:00',
+            'type_jour' => 'non_ferie',
+            'total_heures' => 0.5,
+            'h_jour' => 0,
+            'h_nuit' => 0.5,
+            'h_ferie_jour' => 0,
+            'h_ferie_nuit' => 0,
+        ]);
+
+        $this->actingAs($admin)->put(route('hours.update', $hour), [
+            'employee_id' => $employee->id,
+            'date_enreg' => '2026-09-28',
+            'vacation' => '15:00-23:00',
+            'heure_debut' => '23:30',
+            'heure_fin' => '00:30',
+            'type_jour' => 'non_ferie',
+        ])->assertSessionHasErrors([
+            'heure_fin' => 'La modification doit rester sur une seule date. Modifiez séparément chaque ligne traversant minuit.',
+        ]);
+
+        $this->assertDatabaseHas('registered_hours', [
+            'id' => $hour->id,
+            'heure_fin' => '00:00',
+            'total_heures' => 0.5,
+        ]);
+        $this->assertDatabaseCount('registered_hours', 1);
+    }
+
+    public function test_registered_hour_can_be_deleted(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'admin']);
+        $employee = $this->createEmployee('HOUR-113');
+        $hour = RegisteredHour::create([
+            'employee_id' => $employee->id,
+            'date_enreg' => '2026-09-28',
+            'heure_debut' => '10:00',
+            'heure_fin' => '11:00',
+            'total_heures' => 1,
+            'h_jour' => 1,
+            'h_nuit' => 0,
+            'h_ferie_jour' => 0,
+            'h_ferie_nuit' => 0,
+        ]);
+
+        $this->actingAs($admin)->delete(route('hours.destroy', $hour))
+            ->assertRedirect()
+            ->assertSessionHas('message', 'Saisie d’heures supprimée.');
+
+        $this->assertDatabaseMissing('registered_hours', ['id' => $hour->id]);
+    }
+
+    public function test_employee_role_cannot_update_a_registered_hour(): void
+    {
+        /** @var User $employeeUser */
+        $employeeUser = User::factory()->create(['role' => 'employee']);
+        $employee = $this->createEmployee('HOUR-114');
+        $hour = RegisteredHour::create([
+            'employee_id' => $employee->id,
+            'date_enreg' => '2026-09-28',
+            'heure_debut' => '10:00',
+            'heure_fin' => '11:00',
+            'total_heures' => 1,
+            'h_jour' => 1,
+            'h_nuit' => 0,
+            'h_ferie_jour' => 0,
+            'h_ferie_nuit' => 0,
+        ]);
+
+        $this->actingAs($employeeUser)->put(route('hours.update', $hour), [])->assertForbidden();
+
+        $this->assertDatabaseHas('registered_hours', ['id' => $hour->id]);
+    }
+
+    public function test_employee_role_cannot_delete_a_registered_hour(): void
+    {
+        /** @var User $employeeUser */
+        $employeeUser = User::factory()->create(['role' => 'employee']);
+        $employee = $this->createEmployee('HOUR-115');
+        $hour = RegisteredHour::create([
+            'employee_id' => $employee->id,
+            'date_enreg' => '2026-09-28',
+            'heure_debut' => '10:00',
+            'heure_fin' => '11:00',
+            'total_heures' => 1,
+            'h_jour' => 1,
+            'h_nuit' => 0,
+            'h_ferie_jour' => 0,
+            'h_ferie_nuit' => 0,
+        ]);
+
+        $this->actingAs($employeeUser)->delete(route('hours.destroy', $hour))->assertForbidden();
+
+        $this->assertDatabaseHas('registered_hours', ['id' => $hour->id]);
     }
 
     public function test_weekly_limit_requires_confirmation_before_saving(): void

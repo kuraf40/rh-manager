@@ -37,10 +37,11 @@ Le seeder crée le compte local `admin@example.com` avec le mot de passe initial
 
 - Authentification, profil et administration admin des comptes; inscription publique désactivée.
 - Employés: recherche, pagination, gestion des champs historiques, modification, désactivation/réactivation sans effacer l'historique et anniversaires à venir.
-- Heures supplémentaires: saisie réservée aux magasiniers actifs, date non future, vacation, horaires par tranches de 30 minutes et choix manuel du jour férié. Les créneaux de pause/hors vacation sont contrôlés; la durée et les catégories jour/nuit/férié sont calculées automatiquement. Les saisies traversant minuit sont séparées par date.
+- Heures supplémentaires: saisie réservée aux magasiniers actifs, date non future, vacation, horaires par tranches de 30 minutes et choix manuel du jour férié. Les créneaux de pause/hors vacation sont contrôlés; la durée et les catégories jour/nuit/férié sont calculées automatiquement. Les saisies traversant minuit sont séparées par date. L'historique est paginé et les responsables autorisés peuvent corriger ou supprimer une saisie; une modification ne peut pas créer un nouveau segment traversant minuit.
 - Plafond hebdomadaire historique de 5 h: avertissement avec confirmation explicite, calculé sur les semaines du cycle de référence du 20 au 19. Le rapport hebdomadaire suit la semaine lundi-dimanche; le rapport mensuel suit le cycle du 20 au 19.
-- Rapports hebdomadaires et mensuels agrégés par employé; le rapport mensuel suit le cycle legacy du 20 au 19 et répartit les heures dans les quatre paliers HS configurables.
-- Discipline: quatre types d'action, historique daté et statistiques par employé.
+- Rapports hebdomadaires et mensuels agrégés par employé; le rapport mensuel suit le cycle legacy du 20 au 19 et répartit les heures dans les quatre paliers HS configurables. Chaque rapport offre un retour à la saisie, l'impression et le téléchargement CSV.
+- Discipline: quatre types d'action, historique daté et statistiques par employé; les responsables RH peuvent modifier ou supprimer une action.
+- Les enregistrements réussis (heures, taux et actions disciplinaires) affichent une notification temporaire de confirmation.
 - Accès: employés/discipline admin-RH; saisie heures admin-RH-manager; rapports et taux admin-RH; comptes admin seulement.
 
 Répartition des taux héritée de `projetstage`: HS_12 = les 8 premières heures de jour du cycle; HS_35 = les heures de jour au-delà de 8; HS_50 = heures de nuit plus heures de jour fériées; HS_100 = heures de nuit fériées. Les taux configurés sont affichés sur ces catégories; aucun montant salarial n'est calculé, car aucune base de salaire n'existe dans ce workflow. Le cycle mensuel couvre le 20 du mois précédent au 19 du mois sélectionné. Le type férié est déclaré manuellement à la saisie; aucun calendrier férié n'est inventé. `registered_hours.vacation` et `registered_hours.type_jour` conservent les informations de la saisie; ces colonnes sont nulles pour les anciennes heures importées. Les tables `overtime_settings`, `timeslots` et `overtimes` sont un schéma préexistant non utilisé; `registered_hours` et `overtime_parameters` sont les modèles actifs.
@@ -87,7 +88,7 @@ npm run build
 php artisan route:list
 ```
 
-Dernière vérification locale: les tests ciblés de saisie, de rapports et de taux passent (**13 tests / 79 assertions**). La suite complète compte **54 tests / 232 assertions**; 53 passent. L'unique échec restant est le test préexistant `InertiaSharedPropsTest::test_example`, qui attend un `200` sur `/` alors que la route redirige vers la connexion (`302`).
+Dernière vérification locale: les tests ciblés d'heures, de discipline et de taux passent (**23 tests / 117 assertions**). La suite complète compte **64 tests / 270 assertions**; 63 passent. L'unique échec restant est le test préexistant `InertiaSharedPropsTest::test_example`, qui attend un `200` sur `/` alors que la route redirige vers la connexion (`302`).
 
 - `routes/web.php`: routes et permissions.
 - `app/Http/Controllers`: traitements RH.

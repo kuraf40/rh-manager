@@ -20,7 +20,7 @@ class OvertimeParameterTest extends TestCase
             'hs_35' => 35,
             'hs_50' => 50,
             'hs_100' => 100,
-        ])->assertRedirect();
+        ])->assertRedirect()->assertSessionHas('message', 'Paramètres de majoration enregistrés.');
 
         $this->assertDatabaseHas('overtime_parameters', [
             'id' => 1,

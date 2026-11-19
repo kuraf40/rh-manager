@@ -84,7 +84,7 @@ class OvertimeRegistrationService
     /**
      * @param  list<array<string, int|float|string>>  $segments
      */
-    public function weeklyLimitWarning(int $employeeId, array $segments): ?string
+    public function weeklyLimitWarning(int $employeeId, array $segments, ?int $excludeHourId = null): ?string
     {
         $proposedHours = [];
 
@@ -108,13 +108,18 @@ class OvertimeRegistrationService
                 $weekEndExclusive = $periodEnd;
             }
 
-            $recordedHours = (float) RegisteredHour::query()
+            $recordedHoursQuery = RegisteredHour::query()
                 ->where('employee_id', $employeeId)
                 ->whereBetween('date_enreg', [
                     $weekStart->toDateString(),
                     $weekEndExclusive->subDay()->toDateString(),
-                ])
-                ->sum('total_heures');
+                ]);
+
+            if ($excludeHourId !== null) {
+                $recordedHoursQuery->where('id', '<>', $excludeHourId);
+            }
+
+            $recordedHours = (float) $recordedHoursQuery->sum('total_heures');
             $totalAfterEntry = $recordedHours + $period['hours'];
 
             if ($totalAfterEntry > self::WEEKLY_LIMIT) {

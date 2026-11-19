@@ -31,6 +31,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/hours/settings', [OvertimeParameterController::class, 'update'])->name('hours.settings.update');
     });
 
+    Route::middleware('role:admin,rh,manager')->group(function () {
+        Route::put('/hours/{registeredHour}', [RegisteredHourController::class, 'update'])->name('hours.update');
+        Route::delete('/hours/{registeredHour}', [RegisteredHourController::class, 'destroy'])->name('hours.destroy');
+    });
+
     // Profil Utilisateur
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -45,6 +50,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Discipline & Sanctions
         Route::get('/discipline', [DisciplinaryActionController::class, 'index'])->name('discipline.index');
         Route::post('/discipline', [DisciplinaryActionController::class, 'store'])->name('discipline.store');
+        Route::put('/discipline/{disciplinaryAction}', [DisciplinaryActionController::class, 'update'])->name('discipline.update');
+        Route::delete('/discipline/{disciplinaryAction}', [DisciplinaryActionController::class, 'destroy'])->name('discipline.destroy');
         Route::get('/discipline/statistics', [DisciplinaryActionController::class, 'statistics'])->name('discipline.statistics');
     });
 
