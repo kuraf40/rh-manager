@@ -9,6 +9,7 @@ use App\Services\OvertimeRateCalculator;
 use App\Services\OvertimeRegistrationService;
 use Carbon\CarbonImmutable;
 use Carbon\WeekDay;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,8 +20,13 @@ use Inertia\Response;
 
 class RegisteredHourController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $validated = $request->validate([
+            'search' => ['sometimes', 'nullable', 'string', 'max:100'],
+        ]);
+        $search = trim($validated['search'] ?? '');
+
         return Inertia::render('Hours/Index', [
             'employees' => Employee::query()
                 ->where('actif', true)
@@ -33,10 +39,28 @@ class RegisteredHourController extends Controller
                 ->get(['id', 'matricule', 'nom', 'prenom']),
             'hours' => RegisteredHour::query()
                 ->with('employee:id,matricule,nom,prenom')
+                ->when($search !== '', function (Builder $query) use ($search): void {
+                    $pattern = "%{$search}%";
+
+                    $query->where(function (Builder $query) use ($pattern): void {
+                        $query->whereHas('employee', function (Builder $employeeQuery) use ($pattern): void {
+                            $employeeQuery->where('nom', 'like', $pattern)
+                                ->orWhere('prenom', 'like', $pattern)
+                                ->orWhere('matricule', 'like', $pattern)
+                                ->orWhere('fonction', 'like', $pattern);
+                        })
+                            ->orWhere('date_enreg', 'like', $pattern)
+                            ->orWhere('heure_debut', 'like', $pattern)
+                            ->orWhere('heure_fin', 'like', $pattern)
+                            ->orWhere('vacation', 'like', $pattern)
+                            ->orWhere('type_jour', 'like', $pattern);
+                    });
+                })
                 ->orderByDesc('date_enreg')
                 ->orderByDesc('id')
                 ->paginate(15)
                 ->withQueryString(),
+            'search' => $search,
             'today' => now()->toDateString(),
         ]);
     }

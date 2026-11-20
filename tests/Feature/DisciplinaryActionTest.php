@@ -31,11 +31,51 @@ class DisciplinaryActionTest extends TestCase
         $this->assertDatabaseHas('disciplinary_actions', [
             'id' => $action->id,
             'type' => 'blame',
-            'code' => 'BL-100',
+            'code' => null,
             'motif' => 'Motif corrigé',
             'resume' => 'Résumé corrigé',
             'attribue_par' => 'Responsable RH',
         ]);
+    }
+
+    public function test_history_search_filters_actions_by_employee_details(): void
+    {
+        /** @var User $hr */
+        $hr = User::factory()->create(['role' => 'rh']);
+        $action = $this->createAction();
+        $otherEmployee = Employee::create([
+            'matricule' => 'DISC-OTHER',
+            'site' => 'Cotonou',
+            'nom' => 'Houngbo',
+            'prenom' => 'Paul',
+            'genre' => 'H',
+            'actif' => true,
+        ]);
+        DisciplinaryAction::create([
+            'type' => 'blame',
+            'employee_id' => $otherEmployee->id,
+            'motif' => 'Absence',
+        ]);
+
+        $this->actingAs($hr)->get(route('discipline.index', ['search' => 'DISC-200']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Discipline/Index')
+                ->where('search', 'DISC-200')
+                ->where('actions.total', 1)
+                ->where('actions.data.0.id', $action->id)
+                ->where('actions.data.0.employee.matricule', 'DISC-200'));
+    }
+
+    public function test_history_search_does_not_treat_input_as_sql(): void
+    {
+        /** @var User $hr */
+        $hr = User::factory()->create(['role' => 'rh']);
+        $this->createAction();
+
+        $this->actingAs($hr)->get(route('discipline.index', ['search' => "' OR 1=1 --"]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Discipline/Index')
+                ->where('actions.total', 0));
     }
 
     public function test_hr_can_delete_a_disciplinary_action(): void
