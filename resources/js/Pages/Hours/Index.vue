@@ -1,12 +1,13 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 const props = defineProps({
     employees: Array,
     editableEmployees: Array,
     hours: Object,
+    search: String,
     today: String,
 });
 
@@ -14,6 +15,23 @@ const userRole = usePage().props.auth.user.role;
 const canViewReports = ['admin', 'rh', 'manager'].includes(userRole);
 const canManageRates = ['admin', 'rh'].includes(userRole);
 const editingHour = ref(null);
+const search = ref(props.search || '');
+let searchTimeout;
+
+watch(search, (value) => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        const query = value.trim();
+
+        router.get(route('hours.index'), query ? { search: query } : {}, {
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+        });
+    }, 300);
+});
+
+onBeforeUnmount(() => clearTimeout(searchTimeout));
 
 const form = useForm({
     employee_id: '',
@@ -330,7 +348,17 @@ const deleteHour = (item) => {
                 </section>
 
                 <section class="rounded-md bg-white p-3 shadow-sm sm:p-5">
-                    <h3 class="mb-4 text-base font-semibold text-gray-900">Historique des heures ({{ hours.total }})</h3>
+                    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <h3 class="text-base font-semibold text-gray-900">Historique des heures ({{ hours.total }})</h3>
+                        <label class="sr-only" for="registered-hours-search">Rechercher dans l’historique des heures</label>
+                        <input
+                            id="registered-hours-search"
+                            v-model="search"
+                            type="search"
+                            placeholder="Employé, matricule, date, horaires…"
+                            class="w-full max-w-md rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-700 focus:ring-emerald-700"
+                        />
+                    </div>
                     <div class="overflow-x-auto">
                     <table class="w-full min-w-[980px] table-fixed divide-y divide-gray-200 md:min-w-0">
                         <colgroup>

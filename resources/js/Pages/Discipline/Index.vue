@@ -1,17 +1,17 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { onBeforeUnmount, ref, watch } from 'vue';
 
 const props = defineProps({
     employees: Array,
     actions: Object,
+    search: String,
 });
 
 const form = useForm({
     type: 'demande_explication',
     employee_id: '',
-    code: '',
     motif: '',
     resume: '',
     nb_jours: '',
@@ -19,6 +19,23 @@ const form = useForm({
 });
 
 const editingActionId = ref(null);
+const search = ref(props.search || '');
+let searchTimeout;
+
+watch(search, (value) => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        const query = value.trim();
+
+        router.get(route('discipline.index'), query ? { search: query } : {}, {
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+        });
+    }, 300);
+});
+
+onBeforeUnmount(() => clearTimeout(searchTimeout));
 
 const submit = () => {
     const options = {
@@ -44,7 +61,6 @@ const startEditing = (action) => {
     Object.assign(form, {
         type: action.type,
         employee_id: action.employee_id,
-        code: action.code || '',
         motif: action.motif || '',
         resume: action.resume || '',
         nb_jours: action.nb_jours || '',
@@ -125,12 +141,6 @@ const getTypeBadge = (type) => {
                             <p v-if="form.errors.employee_id" class="mt-1 text-sm text-red-700">{{ form.errors.employee_id }}</p>
                         </div>
 
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Code</label>
-                            <input v-model="form.code" type="text" maxlength="20" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-                            <p v-if="form.errors.code" class="mt-1 text-sm text-red-700">{{ form.errors.code }}</p>
-                        </div>
-
                         <div v-if="form.type === 'mise_a_pied'">
                             <label class="block text-sm font-medium text-gray-700">Nombre de jours</label>
                             <input v-model="form.nb_jours" type="number" min="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" placeholder="Ex: 3" />
@@ -164,7 +174,17 @@ const getTypeBadge = (type) => {
 
                 <!-- Historique des sanctions -->
                 <div class="bg-white p-6 shadow sm:rounded-lg">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Historique des Sanctions</h3>
+                    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+                        <h3 class="text-lg font-medium text-gray-900">Historique des sanctions ({{ actions.total }})</h3>
+                        <label class="sr-only" for="disciplinary-history-search">Rechercher dans l’historique des sanctions</label>
+                        <input
+                            id="disciplinary-history-search"
+                            v-model="search"
+                            type="search"
+                            placeholder="Employé, matricule, type, motif…"
+                            class="w-full max-w-md rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-700 focus:ring-emerald-700"
+                        />
+                    </div>
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>

@@ -52,6 +52,58 @@ class RegisteredHourTest extends TestCase
                 ->where('flash.message', 'Enregistrement confirmé.'));
     }
 
+    public function test_hours_history_search_filters_by_employee_details(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'admin']);
+        $employee = $this->createEmployee('HOUR-SEARCH');
+        $otherEmployee = $this->createEmployee('HOUR-OTHER');
+
+        foreach ([$employee, $otherEmployee] as $hourEmployee) {
+            RegisteredHour::create([
+                'employee_id' => $hourEmployee->id,
+                'date_enreg' => '2026-09-28',
+                'heure_debut' => '10:00',
+                'heure_fin' => '11:00',
+                'total_heures' => 1,
+                'h_jour' => 1,
+                'h_nuit' => 0,
+                'h_ferie_jour' => 0,
+                'h_ferie_nuit' => 0,
+            ]);
+        }
+
+        $this->actingAs($admin)->get(route('hours.index', ['search' => 'HOUR-SEARCH']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Hours/Index')
+                ->where('search', 'HOUR-SEARCH')
+                ->where('hours.total', 1)
+                ->where('hours.data.0.employee.matricule', 'HOUR-SEARCH'));
+    }
+
+    public function test_hours_history_search_does_not_treat_input_as_sql(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'admin']);
+        $employee = $this->createEmployee('HOUR-SEARCH');
+        RegisteredHour::create([
+            'employee_id' => $employee->id,
+            'date_enreg' => '2026-09-28',
+            'heure_debut' => '10:00',
+            'heure_fin' => '11:00',
+            'total_heures' => 1,
+            'h_jour' => 1,
+            'h_nuit' => 0,
+            'h_ferie_jour' => 0,
+            'h_ferie_nuit' => 0,
+        ]);
+
+        $this->actingAs($admin)->get(route('hours.index', ['search' => "' OR 1=1 --"]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Hours/Index')
+                ->where('hours.total', 0));
+    }
+
     public function test_manager_can_view_overtime_reports(): void
     {
         /** @var User $manager */

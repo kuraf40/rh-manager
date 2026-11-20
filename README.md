@@ -60,10 +60,11 @@ Utilisez les identifiants SMTP fournis par votre organisation, ne les commitez p
 
 - Authentification, profil réservé à l'administrateur et administration des comptes; seuls les rôles Admin, RH et Manager peuvent être attribués, et l'inscription publique est désactivée.
 - Employés: recherche, pagination, gestion des champs historiques, modification, désactivation/réactivation sans effacer l'historique et anniversaires à venir.
-- Heures supplémentaires: saisie réservée aux magasiniers actifs, date non future, vacation, horaires par tranches de 30 minutes et choix manuel du jour férié. Les créneaux de pause/hors vacation sont contrôlés; la durée et les catégories jour/nuit/férié sont calculées automatiquement. Les saisies traversant minuit sont séparées par date. L'historique est paginé et les responsables autorisés peuvent corriger ou supprimer une saisie; une modification ne peut pas créer un nouveau segment traversant minuit.
+- Heures supplémentaires: saisie réservée aux magasiniers actifs, date non future, vacation, horaires par tranches de 30 minutes et choix manuel du jour férié. Les créneaux de pause/hors vacation sont contrôlés; la durée et les catégories jour/nuit/férié sont calculées automatiquement. Les saisies traversant minuit sont séparées par date. L'historique est paginé et recherchable par employé, matricule, date et horaires; les responsables autorisés peuvent corriger ou supprimer une saisie; une modification ne peut pas créer un nouveau segment traversant minuit.
 - Plafond hebdomadaire historique de 5 h: avertissement avec confirmation explicite, calculé sur les semaines du cycle de référence du 20 au 19. Le rapport hebdomadaire suit la semaine lundi-dimanche; le rapport mensuel suit le cycle du 20 au 19.
 - Rapports hebdomadaires et mensuels agrégés par employé; le rapport mensuel suit le cycle legacy du 20 au 19 et répartit les heures dans les quatre paliers HS configurables. Chaque rapport offre un retour à la saisie, l'impression et le téléchargement CSV avec la période exacte dans le titre imprimé.
-- Discipline: quatre types d'action, historique daté et statistiques par employé avec recherche par nom, prénom, matricule ou fonction; les responsables RH peuvent modifier ou supprimer une action.
+- Discipline: quatre types d'action, historique daté recherchable par employé, matricule, type, motif ou date et statistiques par employé avec recherche par nom, prénom, matricule ou fonction; les responsables RH peuvent modifier ou supprimer une action. Le champ « code » n'est plus demandé lors de la saisie; les valeurs historiques importées restent conservées.
+- Tableau de bord: indicateurs des employés actifs, des heures supplémentaires et des actions disciplinaires, avec graphiques des heures par mois (six derniers mois) et des sanctions par type.
 - Les enregistrements réussis (heures, taux et actions disciplinaires) affichent une notification temporaire de confirmation.
 - Accès: Admin voit tous les onglets; RH voit les mêmes onglets sauf Comptes; Manager voit les onglets sauf Comptes, Taux et Anniversaires. Les routes appliquent les mêmes permissions côté serveur.
 
@@ -111,7 +112,7 @@ npm run build
 php artisan route:list
 ```
 
-Dernière vérification locale: les tests ciblés des rôles, accès RH, heures et taux passent (**34 tests / 172 assertions**). La suite complète compte **70 tests / 302 assertions**; 69 passent. L'unique échec restant est le test préexistant `InertiaSharedPropsTest::test_example`, qui attend un `200` sur `/` alors que la route redirige vers la connexion (`302`).
+Vérification locale du 20 novembre 2026: le build frontend et les tests ciblés des sanctions, heures et tableau de bord passent (**26 tests / 205 assertions**). La suite complète compte **78 tests / 439 assertions**; 77 passent. L'unique échec est le test préexistant `InertiaSharedPropsTest::test_example`, qui attend un `200` sur `/` alors que la route redirige vers la connexion (`302`).
 
 - `routes/web.php`: routes et permissions.
 - `app/Http/Controllers`: traitements RH.
