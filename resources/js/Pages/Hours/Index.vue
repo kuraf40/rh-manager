@@ -407,8 +407,16 @@ const deleteHour = (item) => {
                                 <td class="whitespace-nowrap px-2 py-3 text-right text-xs font-semibold text-gray-900 sm:text-sm">{{ formatHours(item.total_heures) }} h</td>
                                 <td class="sticky right-0 whitespace-nowrap bg-white px-2 py-3 text-right text-xs sm:text-sm">
                                     <div class="flex justify-end gap-2">
-                                        <button type="button" class="text-emerald-700 hover:underline" @click="startEditing(item)">Modifier</button>
-                                        <button type="button" class="text-red-700 hover:underline" @click="deleteHour(item)">Supprimer</button>
+                                        <button type="button" :aria-label="`Modifier la saisie du ${item.date_enreg}`" class="inline-flex h-8 w-8 items-center justify-center rounded text-emerald-700 hover:bg-emerald-50" @click="startEditing(item)">
+                                            <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m16.862 4.487 1.651 1.651a2.121 2.121 0 0 1 0 3L9.75 17.9 5 19l1.1-4.75 8.763-8.763a2.121 2.121 0 0 1 3 0Z" />
+                                            </svg>
+                                        </button>
+                                        <button type="button" :aria-label="`Supprimer la saisie du ${item.date_enreg}`" class="inline-flex h-8 w-8 items-center justify-center rounded text-red-700 hover:bg-red-50" @click="deleteHour(item)">
+                                            <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18m-2 0-.867 13.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 6m4 0V4h6v2m-5 4v7m4-7v7" />
+                                            </svg>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>

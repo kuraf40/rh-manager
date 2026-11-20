@@ -139,7 +139,11 @@ const toggleStatus = (employee) => {
                                     </span>
                                 </td>
                                 <td class="whitespace-nowrap px-4 py-3 text-right">
-                                    <button type="button" class="mr-3 text-sm font-medium text-emerald-800 hover:underline" @click="openEdit(emp)">Modifier</button>
+                                    <button type="button" :aria-label="`Modifier ${emp.nom} ${emp.prenom}`" class="mr-2 inline-flex h-8 w-8 items-center justify-center rounded text-emerald-800 hover:bg-emerald-50" @click="openEdit(emp)">
+                                        <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m16.862 4.487 1.651 1.651a2.121 2.121 0 0 1 0 3L9.75 17.9 5 19l1.1-4.75 8.763-8.763a2.121 2.121 0 0 1 3 0Z" />
+                                        </svg>
+                                    </button>
                                     <button type="button" class="text-sm text-gray-600 hover:underline" @click="toggleStatus(emp)">{{ emp.actif ? 'Désactiver' : 'Réactiver' }}</button>
                                 </td>
                             </tr>
