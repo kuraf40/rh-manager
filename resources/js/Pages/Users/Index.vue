@@ -65,8 +65,16 @@ const deleteUser = (user) => {
                                     {{ user.employee ? `${user.employee.nom} ${user.employee.prenom} (${user.employee.matricule})` : 'Aucun' }}
                                 </td>
                                 <td class="whitespace-nowrap px-4 py-3 text-right text-sm">
-                                    <Link :href="route('users.edit', user.id)" class="mr-3 font-medium text-emerald-800 hover:underline">Modifier</Link>
-                                    <button type="button" class="text-gray-600 hover:underline" @click="deleteUser(user)">Supprimer</button>
+                                    <Link :href="route('users.edit', user.id)" :aria-label="`Modifier le compte de ${user.name}`" class="mr-2 inline-flex h-8 w-8 items-center justify-center rounded text-emerald-800 hover:bg-emerald-50">
+                                        <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m16.862 4.487 1.651 1.651a2.121 2.121 0 0 1 0 3L9.75 17.9 5 19l1.1-4.75 8.763-8.763a2.121 2.121 0 0 1 3 0Z" />
+                                        </svg>
+                                    </Link>
+                                    <button type="button" :aria-label="`Supprimer le compte de ${user.name}`" class="inline-flex h-8 w-8 items-center justify-center rounded text-red-700 hover:bg-red-50" @click="deleteUser(user)">
+                                        <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18m-2 0-.867 13.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 6m4 0V4h6v2m-5 4v7m4-7v7" />
+                                        </svg>
+                                    </button>
                                 </td>
                             </tr>
                             <tr v-if="users.data.length === 0">
